@@ -36,7 +36,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 export function SidePanel({ onNotice }: { onNotice: (msg: string) => void }) {
   const [tab, setTab] = useState<Tab | null>("text");
   return (
-    <aside className="flex h-full shrink-0 border-r border-ink-200 bg-white" aria-label="Side panel">
+    <aside className="flex h-full shrink-0 border-r border-ink-200 bg-surface" aria-label="Side panel">
       <nav className="flex w-[72px] flex-col items-center gap-1 border-r border-ink-100 py-2" role="tablist">
         {TABS.map((t) => (
           <button
@@ -45,7 +45,7 @@ export function SidePanel({ onNotice }: { onNotice: (msg: string) => void }) {
             aria-selected={tab === t.id}
             onClick={() => setTab(tab === t.id ? null : t.id)}
             className={cx(
-              "flex w-16 flex-col items-center gap-1 rounded-lg py-2 text-[11px] font-medium text-ink-600 transition-colors hover:bg-ink-100",
+              "flex w-16 flex-col items-center gap-1 rounded-[var(--radius-input)] py-2 text-[11px] font-medium text-ink-600 transition-colors hover:bg-ink-100",
               tab === t.id && "bg-accent-50 text-accent-600",
             )}
           >
@@ -83,7 +83,7 @@ function TextTab() {
       <Heading>Text</Heading>
       <button
         onClick={() => insertText("heading")}
-        className="mb-2 w-full rounded-lg bg-accent-500 px-3 py-2.5 text-sm font-semibold text-white hover:bg-accent-600"
+        className="mb-2 w-full rounded-full bg-accent-500 shadow-[var(--shadow-cta)] px-3 py-2.5 text-sm font-semibold text-white hover:bg-accent-600"
       >
         Add a text box
       </button>
@@ -108,7 +108,7 @@ function PresetButton({ children, onClick, className }: { children: React.ReactN
     <button
       onClick={onClick}
       className={cx(
-        "w-full rounded-lg border border-ink-200 px-3 py-3 text-left text-ink-900 hover:border-ink-300 hover:bg-ink-50",
+        "w-full rounded-[var(--radius-input)] px-3 py-3 text-left shadow-[var(--shadow-hairline)] text-ink-900 hover:bg-ink-50",
         className,
       )}
     >
@@ -119,7 +119,7 @@ function PresetButton({ children, onClick, className }: { children: React.ReactN
 
 function ElementsTab() {
   const tile =
-    "flex aspect-square items-center justify-center rounded-lg bg-ink-50 text-ink-500 hover:bg-ink-100 hover:text-ink-800";
+    "flex aspect-square items-center justify-center rounded-[var(--radius-input)] bg-ink-50 text-ink-500 hover:bg-ink-100 hover:text-ink-800";
   return (
     <>
       <Heading>Shapes</Heading>
@@ -174,7 +174,7 @@ function AssetThumb({ id, name }: { id: string; name: string }) {
       draggable
       onDragStart={(e) => e.dataTransfer.setData(ASSET_DRAG_TYPE, id)}
       onClick={() => insertAsset(id)}
-      className="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-ink-50 hover:ring-2 hover:ring-accent-400"
+      className="flex aspect-square items-center justify-center overflow-hidden rounded-[var(--radius-input)] bg-ink-50 hover:ring-2 hover:ring-accent-400"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {src ? <img src={src} alt={name} className="h-full w-full object-cover" /> : <ImageIcon className="text-ink-300" />}
@@ -191,7 +191,7 @@ function UploadsTab({ onNotice }: { onNotice: (msg: string) => void }) {
       <Heading>Uploads</Heading>
       <button
         onClick={() => input.current?.click()}
-        className="mb-2 w-full rounded-lg bg-accent-500 px-3 py-2.5 text-sm font-semibold text-white hover:bg-accent-600"
+        className="mb-2 w-full rounded-full bg-accent-500 shadow-[var(--shadow-cta)] px-3 py-2.5 text-sm font-semibold text-white hover:bg-accent-600"
       >
         Upload images
       </button>

@@ -67,7 +67,7 @@ export function ContextToolbar() {
           }
         />
         <Divider />
-        <span className="text-xs tabular-nums text-ink-500">
+        <span className="font-mono text-xs text-ink-500">
           {design.width} × {design.height} px
         </span>
       </Bar>
@@ -108,7 +108,7 @@ export function ContextToolbar() {
             aria-label="Font"
             value={first.fontFamily}
             onChange={(e) => upd({ fontFamily: e.target.value })}
-            className="h-8 w-40 rounded-md border border-ink-200 bg-white px-2 text-sm"
+            className="h-8 w-40 rounded-[10px] border border-ink-200 bg-surface px-2 text-sm"
             style={{ fontFamily: `"${first.fontFamily}"` }}
           >
             {FONTS.map((f) => (
@@ -319,7 +319,7 @@ export function ContextToolbar() {
 }
 
 function Bar({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-12 shrink-0 items-center gap-1 border-b border-ink-200 bg-white px-3">{children}</div>;
+  return <div className="flex h-12 shrink-0 items-center gap-1 border-b border-ink-200 bg-surface px-3">{children}</div>;
 }
 
 function Row({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {

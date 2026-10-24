@@ -60,7 +60,7 @@ export function TextEditor({ el, scale, origin }: { el: TextElement; scale: numb
         opacity: el.opacity,
         background: "transparent",
         border: "none",
-        outline: "1.5px solid #ff5a36",
+        outline: "1.5px solid #3e3aa8",
         outlineOffset: 2,
         padding: 0,
         margin: 0,

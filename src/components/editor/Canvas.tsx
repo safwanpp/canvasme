@@ -14,7 +14,8 @@ import { ASSET_DRAG_TYPE, addImageFiles, insertAsset } from "./actions";
 import { ElementNode } from "./ElementNode";
 import { TextEditor } from "./TextEditor";
 
-const ACCENT = "#ff5a36";
+const ACCENT = "#3e3aa8";
+const GUIDE = "#9d7ff4";
 const SNAP_PX = 6;
 
 type Guide = { vertical: boolean; pos: number };
@@ -315,7 +316,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   return (
     <div
       ref={wrapRef}
-      className="relative h-full w-full overflow-hidden bg-[#ebecf0]"
+      className="relative h-full w-full overflow-hidden bg-ink-100"
       style={{ cursor: spaceDown ? "grab" : "default" }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
@@ -338,7 +339,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                 width={W}
                 height={H}
                 fill={page.background}
-                shadowColor="rgba(15,23,42,0.18)"
+                shadowColor="rgba(30,34,90,0.22)"
                 shadowBlur={24 / scale}
                 shadowOffsetY={4 / scale}
               />
@@ -361,7 +362,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                 <Line
                   key={i}
                   points={g.vertical ? [g.pos, -10000, g.pos, 10000] : [-10000, g.pos, 10000, g.pos]}
-                  stroke="#d946ef"
+                  stroke={GUIDE}
                   strokeWidth={1 / scale}
                   listening={false}
                 />
@@ -387,7 +388,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                   y={Math.min(marquee.y0, marquee.y1)}
                   width={Math.abs(marquee.x1 - marquee.x0)}
                   height={Math.abs(marquee.y1 - marquee.y0)}
-                  fill="rgba(255,90,54,0.08)"
+                  fill="rgba(62,58,168,0.08)"
                   stroke={ACCENT}
                   strokeWidth={1 / scale}
                   listening={false}
@@ -406,6 +407,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
               anchorFill="#ffffff"
               anchorSize={10}
               anchorCornerRadius={5}
+              anchorStrokeWidth={1.5}
               rotateAnchorOffset={28}
               ignoreStroke
               onTransform={onTransform}

@@ -120,13 +120,13 @@ export default function Dashboard() {
         if (f) openFile(f);
       }}
     >
-      <header className="flex h-14 items-center justify-between border-b border-ink-200 bg-white px-4 sm:px-6">
+      <header className="flex h-14 items-center justify-between border-b border-ink-200 bg-surface/80 px-4 backdrop-blur-xl sm:px-6">
         <Link href="/" className="font-display text-lg font-bold tracking-tight">
           canvas<span className="text-accent-500">.me</span>
         </Link>
         <button
           onClick={() => fileInput.current?.click()}
-          className="flex items-center gap-2 rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-medium hover:bg-ink-50"
+          className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-[var(--shadow-hairline)] hover:bg-ink-100"
         >
           <FolderOpen size={16} /> Open work file
         </button>
@@ -145,12 +145,12 @@ export default function Dashboard() {
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {error && (
-          <p role="alert" className="mb-4 rounded-lg bg-accent-50 px-4 py-3 text-sm text-accent-700">
+          <p role="alert" className="mb-4 rounded-[var(--radius-input)] bg-accent-50 px-4 py-3 text-sm text-accent-700">
             {error}
           </p>
         )}
         {showBackupTip && (
-          <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm text-ink-600">
+          <div className="mb-6 flex items-start justify-between gap-4 rounded-[var(--radius-input)] bg-surface px-4 py-3 shadow-[var(--shadow-hairline)] text-sm text-ink-600">
             <p>
               Your designs are saved in this browser only. Clearing site data deletes them, so download a{" "}
               <strong className="text-ink-900">.canvasme work file</strong> to back up anything important.
@@ -167,13 +167,13 @@ export default function Dashboard() {
           </div>
         )}
 
-        <h1 className="font-display text-2xl font-bold tracking-tight">Create a design</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.03em]">Create a design</h1>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {SIZE_PRESETS.map((p) => (
             <button
               key={p.label}
               onClick={() => create(p.label, p.width, p.height)}
-              className="group flex flex-col items-center gap-3 rounded-xl border border-ink-200 bg-white p-4 text-left hover:border-accent-300 hover:shadow-sm"
+              className="group flex flex-col items-center gap-3 rounded-[var(--radius-core)] bg-surface p-4 shadow-[var(--shadow-hairline)] text-left hover:border-accent-300 hover:shadow-sm"
             >
               <span className="flex h-16 w-full items-center justify-center">
                 <span
@@ -186,7 +186,7 @@ export default function Dashboard() {
               </span>
               <span className="w-full">
                 <span className="block text-sm font-medium">{p.label}</span>
-                <span className="block text-xs tabular-nums text-ink-500">
+                <span className="block font-mono text-xs text-ink-500">
                   {p.width} × {p.height} px
                 </span>
               </span>
@@ -200,7 +200,7 @@ export default function Dashboard() {
               if (w >= 16 && h >= 16 && w <= 8000 && h <= 8000) create("Custom design", w, h);
               else setError("Custom size must be between 16 and 8000 px.");
             }}
-            className="flex flex-col justify-between gap-2 rounded-xl border border-dashed border-ink-300 bg-white p-4"
+            className="flex flex-col justify-between gap-2 rounded-[var(--radius-core)] border border-dashed border-ink-300 bg-surface p-4"
           >
             <span className="text-sm font-medium">Custom size</span>
             <span className="flex items-center gap-1 text-xs text-ink-500">
@@ -223,18 +223,18 @@ export default function Dashboard() {
             </span>
             <button
               type="submit"
-              className="flex items-center justify-center gap-1 rounded-lg bg-accent-500 py-1.5 text-sm font-semibold text-white hover:bg-accent-600"
+              className="flex items-center justify-center gap-1 rounded-full bg-accent-500 shadow-[var(--shadow-cta)] py-1.5 text-sm font-semibold text-white hover:bg-accent-600"
             >
               <Plus size={14} /> Create
             </button>
           </form>
         </div>
 
-        <h2 className="mt-12 font-display text-2xl font-bold tracking-tight">Your designs</h2>
+        <h2 className="mt-12 text-2xl font-semibold tracking-[-0.03em]">Your designs</h2>
         {designs === null ? (
           <p className="mt-6 text-sm text-ink-500">Loading…</p>
         ) : designs.length === 0 ? (
-          <div className="mt-6 rounded-xl border border-dashed border-ink-300 bg-white px-6 py-12 text-center">
+          <div className="mt-6 rounded-[var(--radius-core)] border border-dashed border-ink-300 bg-surface px-6 py-12 text-center">
             <p className="font-medium">No designs yet</p>
             <p className="mt-1 text-sm text-ink-500">Pick a size above, or drop a .canvasme file anywhere on this page.</p>
           </div>
@@ -262,7 +262,7 @@ function DesignCard({ design, onDuplicate, onDelete }: { design: Design; onDupli
   return (
     <li className="group relative">
       <Link href={`/app/edit?id=${design.id}`} className="block">
-        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-100 group-hover:border-accent-300">
+        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[var(--radius-core)] bg-ink-100 shadow-[var(--shadow-hairline)] group-hover:border-accent-300">
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={src} alt="" className="max-h-full max-w-full object-contain shadow-sm" />
@@ -271,7 +271,7 @@ function DesignCard({ design, onDuplicate, onDelete }: { design: Design; onDupli
           )}
         </div>
         <p className="mt-2 truncate text-sm font-medium">{design.name}</p>
-        <p className="text-xs text-ink-500">
+        <p className="font-mono text-xs text-ink-500">
           {design.width} × {design.height} · {design.pages.length} page{design.pages.length > 1 ? "s" : ""} · edited{" "}
           {new Date(design.updatedAt).toLocaleDateString()}
         </p>

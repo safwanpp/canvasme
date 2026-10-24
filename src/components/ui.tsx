@@ -82,7 +82,7 @@ export function Popover({
       {open && (
         <div
           className={cx(
-            "absolute z-50 min-w-48 rounded-xl border border-ink-200 bg-white p-3 shadow-xl",
+            "absolute z-50 min-w-48 rounded-[var(--radius-input)] bg-surface p-3 shadow-[var(--shadow-hairline),var(--shadow-soft)]",
             side === "bottom" ? "top-full mt-2" : "bottom-full mb-2",
             align === "left" ? "left-0" : "right-0",
           )}

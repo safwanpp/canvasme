@@ -15,7 +15,7 @@ export function BottomBar() {
   const ratio = design.width / design.height;
 
   return (
-    <footer className="flex h-20 shrink-0 items-center gap-3 border-t border-ink-200 bg-white px-3">
+    <footer className="flex h-20 shrink-0 items-center gap-3 border-t border-ink-200 bg-surface px-3">
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-2">
         {design.pages.map((p, i) => (
           <button
@@ -37,7 +37,7 @@ export function BottomBar() {
       </div>
 
       <div className="flex items-center gap-0.5 border-l border-ink-100 pl-3">
-        <span className="mr-1 text-xs tabular-nums text-ink-500">
+        <span className="mr-1 font-mono text-xs text-ink-500">
           Page {index + 1} / {design.pages.length}
         </span>
         <IconButton title="Move page left" disabled={index === 0} onClick={() => st.movePage(pageId, -1)}>

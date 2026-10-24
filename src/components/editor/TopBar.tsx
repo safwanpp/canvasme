@@ -10,7 +10,7 @@ import { useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
 import { IconButton, Popover } from "../ui";
 
-const DARK = "text-white hover:bg-white/10";
+const BAR_BTN = "text-ink-700 hover:bg-ink-100";
 
 export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
   const router = useRouter();
@@ -36,19 +36,19 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 bg-ink-900 px-3 text-white">
-      <Link href="/app" title="All designs" className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/10">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-ink-200 bg-surface/80 px-3 text-ink-900 backdrop-blur-xl">
+      <Link href="/app" title="All designs" className="flex items-center gap-2 rounded-full px-3 py-1.5 hover:bg-ink-100">
         <Home size={16} />
-        <span className="text-sm font-semibold tracking-tight">canvas.me</span>
+        <span className="text-sm font-bold tracking-tight">canvas<span className="text-accent-500">.me</span></span>
       </Link>
-      <span className="mx-1 h-6 w-px bg-white/15" />
-      <IconButton title="Undo (Ctrl+Z)" disabled={!canUndo} onClick={st.undo} className={DARK}>
+      <span className="mx-1 h-6 w-px bg-ink-200" />
+      <IconButton title="Undo (Ctrl+Z)" disabled={!canUndo} onClick={st.undo} className={BAR_BTN}>
         <Undo2 size={16} />
       </IconButton>
-      <IconButton title="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={st.redo} className={DARK}>
+      <IconButton title="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={st.redo} className={BAR_BTN}>
         <Redo2 size={16} />
       </IconButton>
-      <span className="flex items-center gap-1 text-xs text-white/60" aria-live="polite">
+      <span className="flex items-center gap-1 font-mono text-xs text-ink-500" aria-live="polite">
         {saveStatus === "saving" && (
           <>
             <Loader2 size={12} className="animate-spin" /> Saving…
@@ -73,12 +73,12 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
         onBlur={(e) => {
           if (!e.target.value.trim()) st.mutate((d) => void (d.name = "Untitled design"), { history: false });
         }}
-        className="mx-auto w-64 rounded-md bg-transparent px-2 py-1 text-center text-sm outline-none hover:bg-white/10 focus:bg-white/10"
+        className="mx-auto w-64 rounded-md bg-transparent px-2 py-1 text-center text-sm outline-none hover:bg-ink-100 focus:bg-ink-100"
       />
 
       <button
         onClick={() => fileInput.current?.click()}
-        className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm hover:bg-white/10"
+        className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-ink-800 shadow-[var(--shadow-hairline)] hover:bg-ink-100"
       >
         <FolderOpen size={16} /> Open file
       </button>
@@ -101,7 +101,7 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
       <Popover
         title="Download"
         align="right"
-        triggerClassName="bg-accent-500 px-3 text-white hover:bg-accent-600"
+        triggerClassName="h-9 rounded-full bg-accent-500 px-4 text-white shadow-[var(--shadow-cta)] hover:bg-accent-600"
         trigger={
           <>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}

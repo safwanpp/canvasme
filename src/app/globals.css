@@ -1,29 +1,46 @@
 @import "tailwindcss";
 
+/* Design tokens follow the SETITUP agency system (setitup.in). */
 @theme {
-  --font-sans: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display-face), var(--font-ui), ui-sans-serif, sans-serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 
-  --color-ink-50: #f7f7f8;
-  --color-ink-100: #eeeef1;
-  --color-ink-200: #dedfe4;
-  --color-ink-300: #c4c6ce;
-  --color-ink-400: #9a9dab;
-  --color-ink-500: #6f7383;
-  --color-ink-600: #535767;
-  --color-ink-700: #3d4050;
-  --color-ink-800: #272a37;
-  --color-ink-900: #16181f;
-  --color-ink-950: #0c0d12;
+  /* ink: #0E1530 headings, #474D6B body, #656A82 meta; lighter steps for lines and fills */
+  --color-ink-50: #f3f4f7;
+  --color-ink-100: #eaebf0;
+  --color-ink-200: #dcdee6;
+  --color-ink-300: #c3c6d2;
+  --color-ink-400: #9a9eb2;
+  --color-ink-500: #656a82;
+  --color-ink-600: #474d6b;
+  --color-ink-700: #333a58;
+  --color-ink-800: #1f2643;
+  --color-ink-900: #0e1530;
+  --color-ink-950: #080c1e;
 
-  --color-accent-50: #fff2ee;
-  --color-accent-100: #ffe0d6;
-  --color-accent-200: #ffbfab;
-  --color-accent-300: #ff9a7d;
-  --color-accent-400: #ff7a56;
-  --color-accent-500: #ff5a36;
-  --color-accent-600: #ec3f1a;
-  --color-accent-700: #c42e10;
+  /* accent: indigo #3E3AA8, hover #34309A, soft #E9E8F8, tint #C9C6F2 */
+  --color-accent-50: #f4f3fc;
+  --color-accent-100: #e9e8f8;
+  --color-accent-200: #c9c6f2;
+  --color-accent-300: #9d99e2;
+  --color-accent-400: #6f6bcb;
+  --color-accent-500: #3e3aa8;
+  --color-accent-600: #34309a;
+  --color-accent-700: #2a2780;
+
+  --color-surface: #fdfdfe;
+  --color-lavender: #9d7ff4;
+
+  --radius-input: 14px;
+  --radius-core: 22px;
+  --radius-shell: 28px;
+
+  --shadow-soft: 0 1px 1px rgba(14, 21, 48, 0.03), 0 30px 60px -36px rgba(30, 34, 90, 0.28);
+  --shadow-cta: 0 16px 32px -16px rgba(62, 58, 168, 0.65);
+  --shadow-hairline: inset 0 0 0 1px rgba(14, 21, 48, 0.08);
+
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 html,
@@ -35,6 +52,27 @@ body {
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-accent-200);
+  color: var(--color-ink-900);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 3px;
+}
+
+/* Film grain used on the marketing pages, as on setitup.in. */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* Landing hero: the headline gets "selected" once, then a snap guide flashes. */

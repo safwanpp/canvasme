@@ -1,6 +1,7 @@
 // Google Fonts available in the text panel. `spec` is the css2 family query.
 export const FONTS: { family: string; spec: string }[] = [
   { family: "Inter", spec: "Inter:ital,wght@0,400;0,700;1,400;1,700" },
+  { family: "Geist", spec: "Geist:wght@400;700" },
   { family: "Roboto", spec: "Roboto:ital,wght@0,400;0,700;1,400;1,700" },
   { family: "Montserrat", spec: "Montserrat:ital,wght@0,400;0,700;1,400;1,700" },
   { family: "Poppins", spec: "Poppins:ital,wght@0,400;0,700;1,400;1,700" },
