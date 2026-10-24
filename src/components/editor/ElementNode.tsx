@@ -30,11 +30,22 @@ type Props = {
   register: (id: string, node: Konva.Group | null) => void;
   onPointerDown: (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>, el: Element) => void;
   onDblClick: (el: Element) => void;
+  onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
 };
 
-function ElementNodeImpl({ el, editing, fontsVersion, register, onPointerDown, onDblClick, onDragMove, onDragEnd }: Props) {
+function ElementNodeImpl({
+  el,
+  editing,
+  fontsVersion,
+  register,
+  onPointerDown,
+  onDblClick,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+}: Props) {
   const img = useAssetImage(el.type === "image" ? el.assetId : undefined);
   const attrs = groupAttrs(el);
   return (
@@ -48,6 +59,7 @@ function ElementNodeImpl({ el, editing, fontsVersion, register, onPointerDown, o
       onTouchStart={(e) => onPointerDown(e, el)}
       onDblClick={() => onDblClick(el)}
       onDblTap={() => onDblClick(el)}
+      onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
     >

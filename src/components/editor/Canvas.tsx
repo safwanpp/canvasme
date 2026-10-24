@@ -181,13 +181,24 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     if (el.type === "text" && !el.locked) useEditor.getState().setEditingText(el.id);
   }, []);
 
-  // Snap the dragged element's box to page and sibling edges/centres. Hold Alt to skip.
+  // Alt/Option at the start of a drag leaves a copy behind (Figma/Canva behaviour).
+  const altCopy = useRef(false);
+  const onDragStart = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
+    altCopy.current = false;
+    if (!(e.evt as MouseEvent).altKey) return;
+    const st = useEditor.getState();
+    const id = e.target.id();
+    st.duplicateInPlace(st.selected.includes(id) ? st.selected : [id]);
+    altCopy.current = true;
+  }, []);
+
+  // Snap the dragged element's box to page and sibling edges/centres. Hold Ctrl/Cmd to skip.
   const onDragMove = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
     const node = e.target as Konva.Group;
     const st = useEditor.getState();
     const pg = currentPage(st);
     const pageNode = pageRef.current;
-    if (!pg || !pageNode || st.selected.length > 1 || (e.evt as MouseEvent).altKey) {
+    if (!pg || !pageNode || st.selected.length > 1 || (e.evt as MouseEvent).metaKey || (e.evt as MouseEvent).ctrlKey) {
       setGuides([]);
       return;
     }
@@ -233,7 +244,9 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
       const n = nodes.current.get(sid);
       if (n) patches[sid] = { x: n.x(), y: n.y() };
     }
-    st.updateMany(patches);
+    // After an Alt-drag copy, fold the move into the copy's undo step so one undo reverts both.
+    st.updateMany(patches, altCopy.current ? { history: false } : undefined);
+    altCopy.current = false;
   }, []);
 
   // Text: side anchors change wrap width live instead of stretching glyphs.
@@ -435,6 +448,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                     register={register}
                     onPointerDown={onPointerDown}
                     onDblClick={onDblClick}
+                    onDragStart={onDragStart}
                     onDragMove={onDragMove}
                     onDragEnd={onDragEnd}
                   />

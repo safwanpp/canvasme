@@ -47,7 +47,9 @@ export type EditorState = {
 
   addElement: (el: Element) => void;
   update: (ids: string[], patch: Patch, opts?: MutateOpts) => void;
-  updateMany: (patches: Record<string, Partial<Element>>) => void;
+  updateMany: (patches: Record<string, Partial<Element>>, opts?: MutateOpts) => void;
+  /** Leave copies of the elements where they are, directly beneath each original. */
+  duplicateInPlace: (ids: string[]) => void;
   remove: (ids: string[]) => void;
   duplicate: (ids: string[]) => void;
   paste: (els: Element[]) => void;
@@ -187,11 +189,20 @@ export const useEditor = create<EditorState>((set, get) => ({
       });
     }, opts),
 
-  updateMany: (patches) =>
+  updateMany: (patches, opts) =>
     get().mutate((d) => {
       const page = d.pages.find((p) => p.id === get().pageId);
       if (!page) return;
       page.elements = page.elements.map((e) => (patches[e.id] ? normalize({ ...e, ...patches[e.id] } as Element) : e));
+    }, opts),
+
+  duplicateInPlace: (ids) =>
+    get().mutate((d) => {
+      const page = d.pages.find((p) => p.id === get().pageId);
+      if (!page) return;
+      const originals = page.elements.filter((e) => ids.includes(e.id) && !e.locked);
+      const copies = new Map(cloneWithNewIds(originals, 0).map((c, i) => [originals[i].id, c]));
+      page.elements = page.elements.flatMap((e) => (copies.has(e.id) ? [copies.get(e.id)!, e] : [e]));
     }),
 
   remove: (ids) => {

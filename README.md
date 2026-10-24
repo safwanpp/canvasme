@@ -29,7 +29,8 @@ A free design editor that runs entirely in your browser. Make social posts, slid
 | Zoom in / out / fit | `Ctrl/⌘ +` / `-` / `0`, or `Ctrl/⌘` + scroll |
 | Pan | Scroll, or hold `Space` and drag |
 | New text box | `T` |
-| Skip snapping while dragging | Hold `Alt` |
+| Duplicate while dragging | Hold `Alt/⌥` as you start the drag |
+| Skip snapping while dragging | Hold `Ctrl/⌘` |
 
 ## Good to know
 
