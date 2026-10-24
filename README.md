@@ -21,6 +21,7 @@ A free design editor that runs entirely in your browser. Make social posts, slid
 | --- | --- |
 | Undo / redo | `Ctrl/⌘ Z` / `Ctrl/⌘ Shift Z` |
 | Copy, cut, paste, duplicate | `Ctrl/⌘ C`, `X`, `V`, `D` |
+| Duplicate | `Alt/⌥ C` |
 | Select all | `Ctrl/⌘ A` |
 | Group / ungroup | `Ctrl/⌘ G` / `Ctrl/⌘ Shift G` |
 | Forward / backward, to front / back | `Ctrl/⌘ ]` `[`, with `Shift` |

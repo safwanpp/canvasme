@@ -307,7 +307,7 @@ export function ContextToolbar() {
         <IconButton title={locked ? "Unlock" : "Lock"} active={locked} onClick={() => upd({ locked: !locked })}>
           {locked ? <Lock size={16} /> : <Unlock size={16} />}
         </IconButton>
-        <IconButton title="Duplicate (Ctrl+D)" onClick={() => st.duplicate(ids)}>
+        <IconButton title="Duplicate (Ctrl+D or Alt+C)" onClick={() => st.duplicate(ids)}>
           <Copy size={16} />
         </IconButton>
         <IconButton title="Delete" disabled={locked} onClick={() => st.remove(ids)}>

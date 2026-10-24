@@ -93,7 +93,12 @@ function useShortcuts(onNotice: (m: string) => void) {
       const page = currentPage(st);
       const selEls = page?.elements.filter((el) => sel.includes(el.id)) ?? [];
 
-      if (mod && key === "z") {
+      // Alt/Option + C duplicates. Match the physical key: on macOS Option+C types "ç".
+      if (e.altKey && !mod && e.code === "KeyC") {
+        if (!sel.length) return;
+        e.preventDefault();
+        st.duplicate(sel);
+      } else if (mod && key === "z") {
         e.preventDefault();
         if (e.shiftKey) st.redo();
         else st.undo();
