@@ -62,7 +62,20 @@ def svg(rows, r, rc=None):
 '''
 
 VARIANTS = {
-    # Shipped mark: bars inset one block, terminals step one block past them (the SETITUP tab).
+    # Shipped mark (from the 11x11 sketch): bars inset from the wall, stepped inner corners,
+    # terminals dropping a row and stepping one block past the bars.
+    "block": ["00111111110",
+              "00111111110",
+              "11110000011",
+              "11110000011",
+              "11000000000",
+              "11000000000",
+              "11000000000",
+              "11110000011",
+              "11110000011",
+              "00111111110",
+              "00111111110"],
+    # Earlier 8x8 take: bars inset one block, terminals step one block past them.
     "minimal": ["01111100",
                 "11111111",
                 "11000000",
@@ -83,9 +96,9 @@ VARIANTS = {
                 "0011111110",
                 "0001111100"],
 }
-RADII = {"minimal": 12, "stepped": 8}
+RADII = {"block": 9, "minimal": 12, "stepped": 8}
 
 if __name__ == "__main__":
     # Usage: python3 scripts/pixel_logo.py public/brand/canvasme-mark.svg [variant]
-    variant = sys.argv[2] if len(sys.argv) > 2 else "minimal"
+    variant = sys.argv[2] if len(sys.argv) > 2 else "block"
     open(sys.argv[1], "w").write(svg(VARIANTS[variant], RADII[variant]))
