@@ -11,6 +11,7 @@ import { Bebas_Neue, Caveat, Playfair_Display } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { InstallButton } from "@/components/Pwa";
 import { LayerSort } from "@/components/landing/LayerSort";
 import { RevealGroup } from "@/components/landing/RevealGroup";
 
@@ -54,6 +55,10 @@ const FAQ = [
   {
     q: "Can I move a design to another computer or my phone?",
     a: "Yes. Download the work file, send it to the other device, and open it in canvas.me there. Images and pages come with it.",
+  },
+  {
+    q: "Can I install it like an app?",
+    a: "Yes. Use Install app (or Add to Home Screen on iPhone) and canvas.me opens in its own window. After the first visit it works offline too.",
   },
   {
     q: "Which file types can I export?",
@@ -227,6 +232,7 @@ export default function Home() {
               </a>
             ))}
           </div>
+          <InstallButton className="hidden py-[9px] md:flex" />
           <PrimaryButton href="/app" small>
             Open editor
           </PrimaryButton>

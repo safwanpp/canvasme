@@ -15,3 +15,11 @@
 
 /twitter-image
   Content-Type: image/png
+
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache

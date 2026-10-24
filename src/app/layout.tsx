@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { PwaRegister } from "@/components/Pwa";
 import "./globals.css";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
     title: "canvas.me: free design editor in your browser",
     description: "Make posts, slides and posters without an account. Your designs stay on your device.",
   },
+  appleWebApp: { capable: true, title: "canvas.me", statusBarStyle: "default" },
   twitter: {
     card: "summary_large_image",
     title: "canvas.me: free design editor in your browser",
@@ -29,7 +31,10 @@ export const viewport: Viewport = { themeColor: "#f3f4f7" };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geist.variable} ${geistMono.variable} antialiased`}>{children}</body>
+      <body className={`${geist.variable} ${geistMono.variable} antialiased`}>
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }

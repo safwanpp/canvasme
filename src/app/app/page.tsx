@@ -3,6 +3,7 @@
 import { Copy, Download, FolderOpen, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { InstallButton, useLaunchedFiles } from "@/components/Pwa";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Popover } from "@/components/ui";
@@ -90,6 +91,8 @@ export default function Dashboard() {
     }
   };
 
+  useLaunchedFiles((file) => openFile(file));
+
   const duplicate = async (d: Design) => {
     const now = Date.now();
     const copy: Design = { ...structuredClone(d), id: uid(), name: `${d.name} (copy)`, createdAt: now, updatedAt: now };
@@ -125,12 +128,15 @@ export default function Dashboard() {
         <Link href="/" aria-label="canvas.me home" className="text-[15px]">
           <Logo id="dash" />
         </Link>
-        <button
+        <div className="flex items-center gap-2">
+          <InstallButton className="hidden sm:flex" />
+          <button
           onClick={() => fileInput.current?.click()}
           className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-[var(--shadow-hairline)] hover:bg-ink-100"
         >
           <FolderOpen size={16} /> Open work file
         </button>
+        </div>
         <input
           ref={fileInput}
           type="file"
