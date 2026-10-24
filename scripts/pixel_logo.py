@@ -1,5 +1,5 @@
-"""Turn a pixel bitmap into one SVG path: convex corners rounded, concave corners sharp
-(the construction used by the SETITUP mark)."""
+"""Turn a pixel bitmap into one SVG path drawn like the SETITUP mark: outer corners rounded,
+the counter's inner corners rounded, and one-block notches (where a tab meets a bar) left sharp."""
 import sys
 
 def outline(rows):
@@ -25,7 +25,7 @@ def outline(rows):
         loops.append(pts)
     return loops
 
-def path(rows, size=400, r=16, rc=0):
+def path(rows, size=400, r=16, rc=16):
     unit = size / max(len(rows), len(rows[0]))
     ox = (size - unit * len(rows[0])) / 2
     oy = (size - unit * len(rows)) / 2
@@ -33,13 +33,16 @@ def path(rows, size=400, r=16, rc=0):
     for pts in outline(rows):
         n = len(pts)
         P = [(ox + x * unit, oy + y * unit) for x, y in pts]
+        G = pts
         segs = []
         for i in range(n):
             p, v, q = P[i - 1], P[i], P[(i + 1) % n]
             din = ((v[0] - p[0]) / max(1e-9, abs(v[0] - p[0]) + abs(v[1] - p[1])), (v[1] - p[1]) / max(1e-9, abs(v[0] - p[0]) + abs(v[1] - p[1])))
             dout = ((q[0] - v[0]) / max(1e-9, abs(q[0] - v[0]) + abs(q[1] - v[1])), (q[1] - v[1]) / max(1e-9, abs(q[0] - v[0]) + abs(q[1] - v[1])))
             convex = din[0] * dout[1] - din[1] * dout[0] > 0
-            rad = r if convex else rc
+            gp, gv, gq = G[i - 1], G[i], G[(i + 1) % n]
+            short = min(abs(gv[0] - gp[0]) + abs(gv[1] - gp[1]), abs(gq[0] - gv[0]) + abs(gq[1] - gv[1])) < 2
+            rad = r if convex else (0 if short else rc)
             a = (v[0] - din[0] * rad, v[1] - din[1] * rad)
             b = (v[0] + dout[0] * rad, v[1] + dout[1] * rad)
             segs.append((a, b, rad, 1 if convex else 0))
@@ -51,46 +54,38 @@ def path(rows, size=400, r=16, rc=0):
         d.append(cmd + "Z")
     return "".join(d)
 
-def svg(rows, r, rc=0):
+def svg(rows, r, rc=None):
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400" fill="none">
-  <path d="{path(rows, r=r, rc=rc)}" fill="url(#g)"/>
+  <path d="{path(rows, r=r, rc=r if rc is None else rc)}" fill="url(#g)"/>
   <defs><linearGradient id="g" x1="200" y1="0" x2="200" y2="400" gradientUnits="userSpaceOnUse"><stop stop-color="#9D7FF4"/><stop offset="1" stop-color="#0755FF"/></linearGradient></defs>
 </svg>
 '''
 
 VARIANTS = {
-    # 10x10 stepped C: two-step staircase on every outer corner
-    "a": ["0001111100",
-          "0011111110",
-          "0111000111",
-          "1110000111",
-          "1100000000",
-          "1100000000",
-          "1110000111",
-          "0111000111",
-          "0011111110",
-          "0001111100"],
-    # 5x5 blocky C, one step per corner, S-like proportions
-    "b": ["01110",
-          "11011",
-          "11000",
-          "11011",
-          "01110"],
-    # 8x8 with chunkier terminals
-    "c": ["00111100",
-          "01111110",
-          "11100111",
-          "11000011",
-          "11000000",
-          "11000011",
-          "11100111",
-          "01111110",
-          "00111100"],
+    # Shipped mark: bars inset one block, terminals step one block past them (the SETITUP tab).
+    "minimal": ["01111100",
+                "11111111",
+                "11000000",
+                "11000000",
+                "11000000",
+                "11000000",
+                "11111111",
+                "01111100"],
+    # Earlier, busier take with two-step staircase corners.
+    "stepped": ["0001111100",
+                "0011111110",
+                "0111000111",
+                "1110000111",
+                "1100000000",
+                "1100000000",
+                "1110000111",
+                "0111000111",
+                "0011111110",
+                "0001111100"],
 }
+RADII = {"minimal": 12, "stepped": 8}
 
 if __name__ == "__main__":
-    # Usage: python3 scripts/pixel_logo.py public/brand/canvasme-mark.svg
-    # Variant "a" (radius 8) is the shipped mark; "b" and "c" are the alternatives considered.
-    variant = sys.argv[2] if len(sys.argv) > 2 else "a"
-    radii = {"a": 8, "b": 16, "c": 10}
-    open(sys.argv[1], "w").write(svg(VARIANTS[variant], radii[variant]))
+    # Usage: python3 scripts/pixel_logo.py public/brand/canvasme-mark.svg [variant]
+    variant = sys.argv[2] if len(sys.argv) > 2 else "minimal"
+    open(sys.argv[1], "w").write(svg(VARIANTS[variant], RADII[variant]))
