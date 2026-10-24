@@ -3,6 +3,9 @@ import { nanoid } from "nanoid";
 
 export const FORMAT_VERSION = 1;
 
+// Colours are hex only: they reach CSS and canvas, so never accept url() or other values.
+const Color = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, "Expected a hex colour");
+
 const base = {
   id: z.string(),
   name: z.string().optional(),
@@ -26,7 +29,7 @@ export const TextElement = z.object({
   bold: z.boolean().default(false),
   italic: z.boolean().default(false),
   underline: z.boolean().default(false),
-  fill: z.string(),
+  fill: Color,
   align: z.enum(["left", "center", "right"]).default("left"),
   lineHeight: z.number().positive().default(1.2),
   letterSpacing: z.number().default(0),
@@ -38,8 +41,8 @@ export const ShapeElement = z.object({
   ...base,
   type: z.literal("shape"),
   shape: ShapeKind,
-  fill: z.string(),
-  stroke: z.string().default("#000000"),
+  fill: Color,
+  stroke: Color.default("#000000"),
   strokeWidth: z.number().nonnegative().default(0),
   cornerRadius: z.number().nonnegative().default(0),
 });
@@ -47,7 +50,7 @@ export const ShapeElement = z.object({
 export const LineElement = z.object({
   ...base,
   type: z.literal("line"),
-  stroke: z.string(),
+  stroke: Color,
   strokeWidth: z.number().positive(),
   dashed: z.boolean().default(false),
   arrowEnd: z.boolean().default(false),
@@ -69,7 +72,7 @@ export const Element = z.discriminatedUnion("type", [
 
 export const Page = z.object({
   id: z.string(),
-  background: z.string(),
+  background: Color,
   elements: z.array(Element),
 });
 

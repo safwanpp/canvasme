@@ -137,7 +137,7 @@ function PagesTab() {
               "relative w-full rounded-md border-2",
               p.id === pageId ? "border-accent-500" : "border-ink-200",
             )}
-            style={{ aspectRatio: ratio, background: p.background }}
+            style={{ aspectRatio: ratio, backgroundColor: p.background }}
           >
             <span className="absolute bottom-1 left-1 rounded bg-white/85 px-1 font-mono text-[11px] text-ink-600">
               {i + 1}

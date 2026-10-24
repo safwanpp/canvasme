@@ -26,7 +26,7 @@ export function BottomBar() {
               "relative h-12 shrink-0 rounded-md border-2 text-xs font-medium text-ink-500 transition-colors",
               p.id === pageId ? "border-accent-500" : "border-ink-200 hover:border-ink-300",
             )}
-            style={{ aspectRatio: ratio, background: p.background, maxWidth: 96 }}
+            style={{ aspectRatio: ratio, backgroundColor: p.background, maxWidth: 96 }}
           >
             <span className="absolute bottom-0.5 left-1 rounded bg-white/80 px-1">{i + 1}</span>
           </button>
