@@ -10,6 +10,18 @@ export const metadata: Metadata = {
   title: "canvas.me: free design editor in your browser",
   description:
     "Design social posts, presentations and posters in your browser. No sign-up, no account. Your designs stay on your device.",
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: "canvas.me",
+    title: "canvas.me: free design editor in your browser",
+    description: "Make posts, slides and posters without an account. Your designs stay on your device.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "canvas.me: free design editor in your browser",
+    description: "Make posts, slides and posters without an account. Your designs stay on your device.",
+  },
 };
 
 export const viewport: Viewport = { themeColor: "#f3f4f7" };
