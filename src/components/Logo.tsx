@@ -24,11 +24,21 @@ export function LogoMark({ size = 24, id = "cm" }: { size?: number; id?: string 
   );
 }
 
-export function Logo({ size = 22, id, className = "" }: { size?: number; id?: string; className?: string }) {
+export function Logo({
+  size = 22,
+  id,
+  className = "",
+  textClassName = "",
+}: {
+  size?: number;
+  id?: string;
+  className?: string;
+  textClassName?: string;
+}) {
   return (
     <span className={`inline-flex items-center gap-2 font-bold tracking-[-0.01em] text-ink-900 ${className}`}>
       <LogoMark size={size} id={id} />
-      <span>
+      <span className={textClassName}>
         canvas<span className="text-accent-500">.me</span>
       </span>
     </span>

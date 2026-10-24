@@ -15,7 +15,7 @@ export function BottomBar() {
   const ratio = design.width / design.height;
 
   return (
-    <footer className="flex h-20 shrink-0 items-center gap-3 border-t border-ink-200 bg-surface px-3">
+    <footer className="hidden h-20 shrink-0 items-center gap-3 border-t border-ink-200 bg-surface px-3 md:flex">
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-2">
         {design.pages.map((p, i) => (
           <button

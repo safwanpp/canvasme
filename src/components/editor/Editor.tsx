@@ -232,7 +232,7 @@ function EditorLayout({ onNotice, notice }: { onNotice: (m: string) => void; not
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-ink-50">
       <TopBar onNotice={onNotice} />
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <SidePanel onNotice={onNotice} />
         <main className="flex min-w-0 flex-1 flex-col">
           <ContextToolbar />

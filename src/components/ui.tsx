@@ -1,7 +1,19 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
+
+export function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    setMatches(mq.matches);
+    const onChange = () => setMatches(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return twMerge(c.filter(Boolean).join(" "));
@@ -31,7 +43,7 @@ export function IconButton({
       disabled={disabled}
       onClick={onClick}
       className={cx(
-        "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-md px-1.5 text-sm text-ink-700 transition-colors",
+        "inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-md px-1.5 text-sm text-ink-700 transition-colors md:h-8 md:min-w-8",
         "hover:bg-ink-100 disabled:pointer-events-none disabled:opacity-35",
         active && "bg-accent-50 text-accent-600",
         className,
@@ -60,32 +72,64 @@ export function Popover({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<React.CSSProperties>({ visibility: "hidden" });
+
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDown);
+    const onResize = () => setOpen(false);
+    document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
+
+  // Fixed positioning keeps the panel visible inside scrolling toolbars;
+  // clamp it to the viewport so it never runs off a phone screen.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = ref.current?.getBoundingClientRect();
+    const panel = panelRef.current?.getBoundingClientRect();
+    if (!trigger || !panel) return;
+    const gap = 8;
+    const margin = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = align === "left" ? trigger.left : trigger.right - panel.width;
+    left = Math.max(margin, Math.min(left, vw - panel.width - margin));
+    const below = trigger.bottom + gap;
+    const above = trigger.top - gap - panel.height;
+    const top = side === "bottom" ? (below + panel.height > vh && above > 0 ? above : below) : above > 0 ? above : below;
+    setPos({ left, top: Math.max(margin, top), maxHeight: vh - 2 * margin, overflowY: "auto" });
+  }, [open, align, side]);
+
   const close = () => setOpen(false);
   return (
     <div ref={ref} className="relative">
-      <IconButton title={title} active={open} onClick={() => setOpen((o) => !o)} className={triggerClassName}>
+      <IconButton
+        title={title}
+        active={open}
+        onClick={() => {
+          setPos({ visibility: "hidden" });
+          setOpen((o) => !o);
+        }}
+        className={triggerClassName}
+      >
         {trigger}
       </IconButton>
       {open && (
         <div
-          className={cx(
-            "absolute z-50 min-w-48 rounded-[var(--radius-input)] bg-surface p-3 shadow-[var(--shadow-hairline),var(--shadow-soft)]",
-            side === "bottom" ? "top-full mt-2" : "bottom-full mb-2",
-            align === "left" ? "left-0" : "right-0",
-          )}
+          ref={panelRef}
+          style={pos}
+          className="fixed z-50 min-w-48 max-w-[calc(100vw-16px)] rounded-[var(--radius-input)] bg-surface p-3 shadow-[var(--shadow-hairline),var(--shadow-soft)]"
         >
           {typeof children === "function" ? children(close) : children}
         </div>

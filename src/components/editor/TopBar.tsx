@@ -37,11 +37,11 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-ink-200 bg-surface/80 px-3 text-ink-900 backdrop-blur-xl">
-      <Link href="/app" title="All designs" className="flex items-center gap-2 rounded-full px-3 py-1.5 hover:bg-ink-100">
-        <Logo id="top" size={20} className="text-sm" />
+    <header className="flex h-14 shrink-0 items-center gap-1 border-b border-ink-200 bg-surface/80 px-3 text-ink-900 backdrop-blur-xl">
+      <Link href="/app" title="All designs" className="flex shrink-0 items-center gap-2 rounded-full px-2 py-1.5 hover:bg-ink-100 md:px-3">
+        <Logo id="top" size={20} className="text-sm" textClassName="hidden md:inline" />
       </Link>
-      <span className="mx-1 h-6 w-px bg-ink-200" />
+      <span className="mx-1 hidden h-6 w-px bg-ink-200 md:block" />
       <IconButton title="Undo (Ctrl+Z)" disabled={!canUndo} onClick={st.undo} className={BAR_BTN}>
         <Undo2 size={16} />
       </IconButton>
@@ -51,17 +51,17 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
       <span className="flex items-center gap-1 font-mono text-xs text-ink-500" aria-live="polite">
         {saveStatus === "saving" && (
           <>
-            <Loader2 size={12} className="animate-spin" /> Saving…
+            <Loader2 size={12} className="animate-spin" /> <span className="hidden lg:inline">Saving…</span>
           </>
         )}
         {saveStatus === "saved" && (
           <>
-            <Check size={12} /> Saved in this browser
+            <Check size={12} /> <span className="hidden lg:inline">Saved in this browser</span>
           </>
         )}
         {saveStatus === "error" && (
           <>
-            <CloudOff size={12} /> Not saved. Download a work file
+            <CloudOff size={12} className="text-[#B23A30]" /> <span className="hidden lg:inline">Not saved. Download a work file</span>
           </>
         )}
       </span>
@@ -73,14 +73,15 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
         onBlur={(e) => {
           if (!e.target.value.trim()) st.mutate((d) => void (d.name = "Untitled design"), { history: false });
         }}
-        className="mx-auto w-64 rounded-md bg-transparent px-2 py-1 text-center text-sm outline-none hover:bg-ink-100 focus:bg-ink-100"
+        className="mx-1 min-w-0 flex-1 rounded-md bg-transparent md:mx-auto md:w-64 md:flex-none px-2 py-1 text-center text-sm outline-none hover:bg-ink-100 focus:bg-ink-100"
       />
 
       <button
         onClick={() => fileInput.current?.click()}
-        className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-ink-800 shadow-[var(--shadow-hairline)] hover:bg-ink-100"
+        title="Open file"
+        className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium md:px-4 md:py-1.5 text-ink-800 shadow-[var(--shadow-hairline)] hover:bg-ink-100"
       >
-        <FolderOpen size={16} /> Open file
+        <FolderOpen size={16} /> <span className="hidden md:inline">Open file</span>
       </button>
       <input
         ref={fileInput}
@@ -101,11 +102,11 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
       <Popover
         title="Download"
         align="right"
-        triggerClassName="h-9 rounded-full bg-accent-500 px-4 text-white shadow-[var(--shadow-cta)] hover:bg-accent-600"
+        triggerClassName="h-9 rounded-full bg-accent-500 px-2.5 md:px-4 text-white shadow-[var(--shadow-cta)] hover:bg-accent-600"
         trigger={
           <>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-            <span className="font-medium">Download</span>
+            <span className="hidden font-medium md:inline">Download</span>
           </>
         }
       >

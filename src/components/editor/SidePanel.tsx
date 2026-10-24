@@ -2,50 +2,85 @@
 
 import {
   ChevronLeft,
+  ChevronRight,
   Circle,
+  Copy,
   Eye,
   EyeOff,
+  Files,
   Hexagon,
   Image as ImageIcon,
   Layers,
   Lock,
+  Maximize,
+  Plus,
   Shapes,
   Square,
   Star,
+  Trash2,
   Triangle,
   Type,
   Unlock,
   Upload,
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { loadAssetImage } from "@/lib/images";
 import type { Element } from "@/lib/model";
 import { currentPage, useEditor } from "@/store/editor";
-import { cx } from "../ui";
+import { useView } from "@/store/view";
+import { cx, useMediaQuery } from "../ui";
 import { ASSET_DRAG_TYPE, addImageFiles, insertAsset, insertLine, insertShape, insertText } from "./actions";
 
-type Tab = "text" | "elements" | "uploads" | "layers";
+type Tab = "text" | "elements" | "uploads" | "layers" | "pages";
 
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+const TABS: { id: Tab; label: string; icon: React.ReactNode; mobileOnly?: boolean }[] = [
   { id: "text", label: "Text", icon: <Type size={20} /> },
   { id: "elements", label: "Elements", icon: <Shapes size={20} /> },
   { id: "uploads", label: "Uploads", icon: <Upload size={20} /> },
   { id: "layers", label: "Layers", icon: <Layers size={20} /> },
+  { id: "pages", label: "Pages", icon: <Files size={20} />, mobileOnly: true },
 ];
 
+/**
+ * Desktop: icon rail plus a 288px panel on the left.
+ * Phone: a bottom tab bar whose panel opens as a sheet over the canvas.
+ */
 export function SidePanel({ onNotice }: { onNotice: (msg: string) => void }) {
-  const [tab, setTab] = useState<Tab | null>("text");
+  const mobile = useMediaQuery("(max-width: 767px)");
+  const [tab, setTab] = useState<Tab | null>(null);
+  const selected = useEditor((s) => s.selected);
+
+  // Desktop starts with the Text panel open; phones start with the canvas clear.
+  useEffect(() => {
+    setTab((t) => (mobile ? (t === "pages" || t === null ? t : null) : t === "pages" ? "text" : (t ?? "text")));
+  }, [mobile]);
+
+  // On a phone, get the sheet out of the way once something is placed on the page.
+  const selKey = selected.join();
+  useEffect(() => {
+    if (mobile && selKey) setTab((t) => (t === "layers" || t === "pages" ? t : null));
+  }, [mobile, selKey]);
+
+  const tabs = TABS.filter((t) => mobile || !t.mobileOnly);
+
   return (
-    <aside className="flex h-full shrink-0 border-r border-ink-200 bg-surface" aria-label="Side panel">
-      <nav className="flex w-[72px] flex-col items-center gap-1 border-r border-ink-100 py-2" role="tablist">
-        {TABS.map((t) => (
+    <aside
+      aria-label="Side panel"
+      className="relative z-30 order-last flex shrink-0 flex-col-reverse md:order-none border-t border-ink-200 bg-surface md:h-full md:flex-row md:border-r md:border-t-0"
+    >
+      <nav
+        role="tablist"
+        className="flex justify-around px-1 pb-[max(env(safe-area-inset-bottom),4px)] pt-1 md:w-[72px] md:flex-col md:justify-start md:gap-1 md:border-r md:border-ink-100 md:px-0 md:py-2"
+      >
+        {tabs.map((t) => (
           <button
             key={t.id}
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setTab(tab === t.id ? null : t.id)}
             className={cx(
-              "flex w-16 flex-col items-center gap-1 rounded-[var(--radius-input)] py-2 text-[11px] font-medium text-ink-600 transition-colors hover:bg-ink-100",
+              "flex min-w-14 flex-col items-center gap-1 rounded-[var(--radius-input)] px-1 py-1.5 text-[11px] font-medium text-ink-600 transition-colors hover:bg-ink-100 md:mx-auto md:w-16 md:py-2",
               tab === t.id && "bg-accent-50 text-accent-600",
             )}
           >
@@ -55,21 +90,87 @@ export function SidePanel({ onNotice }: { onNotice: (msg: string) => void }) {
         ))}
       </nav>
       {tab && (
-        <div className="relative flex w-72 flex-col overflow-y-auto p-4">
+        <div
+          className={cx(
+            "relative flex flex-col overflow-y-auto p-4",
+            mobile
+              ? "absolute inset-x-0 bottom-full max-h-[55dvh] rounded-t-[var(--radius-core)] bg-surface shadow-[0_-12px_40px_-12px_rgba(30,34,90,0.25),var(--shadow-hairline)]"
+              : "w-72",
+          )}
+        >
+          {mobile && <span aria-hidden className="mx-auto -mt-1 mb-3 h-1 w-10 shrink-0 rounded-full bg-ink-200" />}
           <button
-            title="Collapse panel"
+            title="Close panel"
             onClick={() => setTab(null)}
-            className="absolute right-2 top-3 rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            className="absolute right-2 top-3 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
           >
-            <ChevronLeft size={16} />
+            {mobile ? <X size={18} /> : <ChevronLeft size={16} />}
           </button>
           {tab === "text" && <TextTab />}
           {tab === "elements" && <ElementsTab />}
           {tab === "uploads" && <UploadsTab onNotice={onNotice} />}
           {tab === "layers" && <LayersTab />}
+          {tab === "pages" && <PagesTab />}
         </div>
       )}
     </aside>
+  );
+}
+
+function PagesTab() {
+  const design = useEditor((s) => s.design);
+  const pageId = useEditor((s) => s.pageId);
+  const st = useEditor.getState();
+  if (!design) return null;
+  const index = design.pages.findIndex((p) => p.id === pageId);
+  const ratio = design.width / design.height;
+  const action = "flex items-center gap-2 rounded-full px-3 py-2 text-sm text-ink-700 shadow-[var(--shadow-hairline)] disabled:opacity-35";
+  return (
+    <>
+      <Heading>Pages</Heading>
+      <div className="grid grid-cols-3 gap-2">
+        {design.pages.map((p, i) => (
+          <button
+            key={p.id}
+            onClick={() => st.setPage(p.id)}
+            className={cx(
+              "relative w-full rounded-md border-2",
+              p.id === pageId ? "border-accent-500" : "border-ink-200",
+            )}
+            style={{ aspectRatio: ratio, background: p.background }}
+          >
+            <span className="absolute bottom-1 left-1 rounded bg-white/85 px-1 font-mono text-[11px] text-ink-600">
+              {i + 1}
+            </span>
+          </button>
+        ))}
+        <button
+          onClick={st.addPage}
+          className="flex w-full items-center justify-center rounded-md border-2 border-dashed border-ink-200 text-ink-500"
+          style={{ aspectRatio: ratio }}
+          title="Add page"
+        >
+          <Plus size={20} />
+        </button>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button className={action} disabled={index === 0} onClick={() => st.movePage(pageId, -1)}>
+          <ChevronLeft size={15} /> Move left
+        </button>
+        <button className={action} disabled={index === design.pages.length - 1} onClick={() => st.movePage(pageId, 1)}>
+          Move right <ChevronRight size={15} />
+        </button>
+        <button className={action} onClick={() => st.duplicatePage(pageId)}>
+          <Copy size={15} /> Duplicate
+        </button>
+        <button className={action} disabled={design.pages.length <= 1} onClick={() => st.deletePage(pageId)}>
+          <Trash2 size={15} /> Delete
+        </button>
+        <button className={action} onClick={() => useView.getState().requestFit()}>
+          <Maximize size={15} /> Fit to screen
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -269,7 +370,7 @@ function LayersTab() {
                 e.stopPropagation();
                 st.update([el.id], { locked: !el.locked });
               }}
-              className={cx("rounded p-1 text-ink-500 hover:bg-ink-100", !el.locked && "opacity-0 group-hover:opacity-100")}
+              className={cx("rounded p-1 text-ink-500 hover:bg-ink-100", !el.locked && "md:opacity-0 md:group-hover:opacity-100")}
             >
               {el.locked ? <Lock size={14} /> : <Unlock size={14} />}
             </button>
@@ -279,7 +380,7 @@ function LayersTab() {
                 e.stopPropagation();
                 st.update([el.id], { hidden: !el.hidden });
               }}
-              className={cx("rounded p-1 text-ink-500 hover:bg-ink-100", !el.hidden && "opacity-0 group-hover:opacity-100")}
+              className={cx("rounded p-1 text-ink-500 hover:bg-ink-100", !el.hidden && "md:opacity-0 md:group-hover:opacity-100")}
             >
               {el.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>

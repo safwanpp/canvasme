@@ -201,16 +201,16 @@ export default function Dashboard() {
               if (w >= 16 && h >= 16 && w <= 8000 && h <= 8000) create("Custom design", w, h);
               else setError("Custom size must be between 16 and 8000 px.");
             }}
-            className="flex flex-col justify-between gap-2 rounded-[var(--radius-core)] border border-dashed border-ink-300 bg-surface p-4"
+            className="col-span-2 flex flex-col justify-between gap-2 rounded-[var(--radius-core)] border border-dashed border-ink-300 bg-surface p-4 sm:col-span-1"
           >
             <span className="text-sm font-medium">Custom size</span>
-            <span className="flex items-center gap-1 text-xs text-ink-500">
+            <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500">
               <input
                 aria-label="Width"
                 type="number"
                 value={custom.width}
                 onChange={(e) => setCustom({ ...custom, width: Number(e.target.value) })}
-                className="w-16 rounded-md border border-ink-200 px-1.5 py-1 text-sm text-ink-900"
+                className="w-full min-w-0 rounded-[10px] border border-ink-200 px-2 py-1.5 text-sm text-ink-900"
               />
               ×
               <input
@@ -218,7 +218,7 @@ export default function Dashboard() {
                 type="number"
                 value={custom.height}
                 onChange={(e) => setCustom({ ...custom, height: Number(e.target.value) })}
-                className="w-16 rounded-md border border-ink-200 px-1.5 py-1 text-sm text-ink-900"
+                className="w-full min-w-0 rounded-[10px] border border-ink-200 px-2 py-1.5 text-sm text-ink-900"
               />
               px
             </span>
@@ -277,7 +277,7 @@ function DesignCard({ design, onDuplicate, onDelete }: { design: Design; onDupli
           {new Date(design.updatedAt).toLocaleDateString()}
         </p>
       </Link>
-      <div className="absolute right-2 top-2 rounded-lg bg-white opacity-0 shadow focus-within:opacity-100 group-hover:opacity-100">
+      <div className="absolute right-2 top-2 rounded-full bg-surface shadow-[var(--shadow-hairline)] focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
         <Popover title="More" align="right" trigger={<MoreHorizontal size={16} />}>
           <div className="w-52 text-sm">
             <button

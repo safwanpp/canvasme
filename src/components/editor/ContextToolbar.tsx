@@ -108,7 +108,7 @@ export function ContextToolbar() {
             aria-label="Font"
             value={first.fontFamily}
             onChange={(e) => upd({ fontFamily: e.target.value })}
-            className="h-8 w-40 rounded-[10px] border border-ink-200 bg-surface px-2 text-sm"
+            className="h-9 w-32 shrink-0 rounded-[10px] md:h-8 md:w-40 border border-ink-200 bg-surface px-2 text-sm"
             style={{ fontFamily: `"${first.fontFamily}"` }}
           >
             {FONTS.map((f) => (
@@ -117,7 +117,7 @@ export function ContextToolbar() {
               </option>
             ))}
           </select>
-          <div className="flex items-center rounded-md border border-ink-200">
+          <div className="flex shrink-0 items-center rounded-md border border-ink-200">
             <IconButton title="Decrease font size" onClick={() => bumpFont(-1)}>
               <Minus size={14} />
             </IconButton>
@@ -252,7 +252,7 @@ export function ContextToolbar() {
         </>
       )}
 
-      <div className="ml-auto flex items-center gap-0.5">
+      <div className="ml-auto flex shrink-0 items-center gap-0.5 pl-2">
         <Popover title="Transparency" align="right" trigger={<Blend size={16} />}>
           <div className="w-56">
             <Slider
@@ -319,7 +319,9 @@ export function ContextToolbar() {
 }
 
 function Bar({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-12 shrink-0 items-center gap-1 border-b border-ink-200 bg-surface px-3">{children}</div>;
+  return <div className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-ink-200 bg-surface px-2 [scrollbar-width:none] md:px-3 [&::-webkit-scrollbar]:hidden">
+      {children}
+    </div>;
 }
 
 function Row({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {

@@ -10,6 +10,7 @@ import { pageFonts } from "@/lib/render";
 import { importWorkfile, WORKFILE_EXT } from "@/lib/workfile";
 import { currentPage, normalize, useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
+import { useMediaQuery } from "../ui";
 import { ASSET_DRAG_TYPE, addImageFiles, insertAsset } from "./actions";
 import { ElementNode } from "./ElementNode";
 import { TextEditor } from "./TextEditor";
@@ -38,6 +39,61 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [fontsVersion, setFontsVersion] = useState(0);
   const panning = useRef(false);
+  const touchPan = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const coarse = useMediaQuery("(pointer: coarse)");
+
+  // Two-finger pinch zooms and pans, wherever the fingers land.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    let last: { dist: number; cx: number; cy: number } | null = null;
+    const read = (t: TouchList) => {
+      const r = el.getBoundingClientRect();
+      const [a, b] = [t[0], t[1]];
+      return {
+        dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        cx: (a.clientX + b.clientX) / 2 - r.left,
+        cy: (a.clientY + b.clientY) / 2 - r.top,
+      };
+    };
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      // A pinch often starts with one finger on an element; undo that accidental
+      // drag by restoring the stored position before cancelling it.
+      const els = currentPage(useEditor.getState())?.elements ?? [];
+      // Restore every node, since the transformer moves the whole selection together.
+      nodes.current.forEach((n, id) => {
+        const el = els.find((e) => e.id === id);
+        if (el) n.position({ x: el.x, y: el.y });
+      });
+      nodes.current.forEach((n) => n.isDragging() && n.stopDrag());
+      setGuides([]);
+      touchPan.current = null;
+      last = read(e.touches);
+    };
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || !last) return;
+      e.preventDefault();
+      const next = read(e.touches);
+      const v = useView.getState();
+      v.set({ x: v.x + next.cx - last.cx, y: v.y + next.cy - last.cy });
+      useView.getState().zoomAt(v.scale * (next.dist / last.dist), next.cx, next.cy);
+      last = next;
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) last = null;
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd);
+    el.addEventListener("touchcancel", onEnd);
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
 
   // Track viewport size.
   useEffect(() => {
@@ -55,7 +111,8 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   useEffect(() => {
     if (!hasSize) return;
     const { container: c } = useView.getState();
-    const s = Math.min((c.width - 96) / design.width, (c.height - 96) / design.height, 2);
+    const pad = c.width < 640 ? 32 : 96;
+    const s = Math.min((c.width - pad) / design.width, (c.height - pad) / design.height, 2);
     useView.getState().set({ scale: s, x: (c.width - design.width * s) / 2, y: (c.height - design.height * s) / 2 });
   }, [hasSize, fitTick, design.id, design.width, design.height]);
 
@@ -261,6 +318,28 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     useEditor.getState().select(hits, e.evt.shiftKey);
   };
 
+  // One finger on empty canvas pans; a tap without movement clears the selection.
+  const onStageTouchStart = (e: Konva.KonvaEventObject<TouchEvent>) => {
+    if (e.evt.touches.length !== 1 || !isBackground(e.target)) return;
+    if (useEditor.getState().editingTextId) useEditor.getState().setEditingText(null);
+    const t = e.evt.touches[0];
+    touchPan.current = { x: t.clientX, y: t.clientY, moved: false };
+  };
+
+  const onStageTouchMove = (e: Konva.KonvaEventObject<TouchEvent>) => {
+    const p = touchPan.current;
+    if (!p || e.evt.touches.length !== 1) return;
+    const t = e.evt.touches[0];
+    const v = useView.getState();
+    v.set({ x: v.x + t.clientX - p.x, y: v.y + t.clientY - p.y });
+    touchPan.current = { x: t.clientX, y: t.clientY, moved: p.moved || Math.hypot(t.clientX - p.x, t.clientY - p.y) > 2 };
+  };
+
+  const onStageTouchEnd = () => {
+    if (touchPan.current && !touchPan.current.moved) useEditor.getState().select([]);
+    touchPan.current = null;
+  };
+
   const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
     const v = useView.getState();
@@ -316,7 +395,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   return (
     <div
       ref={wrapRef}
-      className="relative h-full w-full overflow-hidden bg-ink-100"
+      className="relative h-full w-full touch-none select-none overflow-hidden bg-ink-100"
       style={{ cursor: spaceDown ? "grab" : "default" }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
@@ -331,6 +410,9 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
           onMouseUp={onStageUp}
           onMouseLeave={() => (panning.current = false)}
           onWheel={onWheel}
+          onTouchStart={onStageTouchStart}
+          onTouchMove={onStageTouchMove}
+          onTouchEnd={onStageTouchEnd}
         >
           <Layer>
             <Group ref={pageRef} x={x} y={y} scaleX={scale} scaleY={scale}>
@@ -405,8 +487,8 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
               borderStrokeWidth={1.5}
               anchorStroke={ACCENT}
               anchorFill="#ffffff"
-              anchorSize={10}
-              anchorCornerRadius={5}
+              anchorSize={coarse ? 16 : 10}
+              anchorCornerRadius={coarse ? 8 : 5}
               anchorStrokeWidth={1.5}
               rotateAnchorOffset={28}
               ignoreStroke
