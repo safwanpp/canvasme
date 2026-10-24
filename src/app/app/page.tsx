@@ -129,6 +129,7 @@ export default function Dashboard() {
           <Logo id="dash" />
         </Link>
         <div className="flex items-center gap-2">
+          <InstallButton variant="icon" className="sm:hidden" />
           <InstallButton className="hidden sm:flex" />
           <button
           onClick={() => fileInput.current?.click()}

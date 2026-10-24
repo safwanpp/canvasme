@@ -2,7 +2,7 @@
 
 import { Download, Share } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Popover } from "./ui";
+import { IconButton, Popover } from "./ui";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -78,64 +78,135 @@ export function PwaRegister() {
   );
 }
 
-/** "Install app": the native prompt where supported, Add to Home Screen steps on iOS, hidden once installed. */
-export function InstallButton({ className = "" }: { className?: string }) {
-  const [mode, setMode] = useState<"hidden" | "prompt" | "ios">("hidden");
+type InstallMode = "installed" | "prompt" | "ios" | "mac-safari" | "android" | "chromium" | "unsupported";
+
+function detectMode(): InstallMode {
+  if (isStandalone()) return "installed";
+  if (deferredPrompt) return "prompt";
+  const ua = navigator.userAgent;
+  if (/iphone|ipad|ipod/i.test(ua) || (navigator.maxTouchPoints > 1 && /macintosh/i.test(ua))) return "ios";
+  if (/android/i.test(ua)) return "android";
+  if (/chrome|chromium|crios|edg\//i.test(ua)) return "chromium";
+  if (/macintosh/i.test(ua) && /safari/i.test(ua) && !/firefox/i.test(ua)) return "mac-safari";
+  return "unsupported";
+}
+
+const HELP: Record<Exclude<InstallMode, "installed" | "prompt">, { title: string; steps: React.ReactNode[] }> = {
+  ios: {
+    title: "Add canvas.me to your Home Screen",
+    steps: [
+      <>
+        Tap <Share size={14} className="inline align-[-2px]" /> Share in Safari&apos;s toolbar.
+      </>,
+      "Choose Add to Home Screen.",
+      "Tap Add.",
+    ],
+  },
+  "mac-safari": {
+    title: "Add canvas.me to your Dock",
+    steps: ["In Safari's menu bar, choose File.", "Choose Add to Dock.", "Click Add."],
+  },
+  android: {
+    title: "Install canvas.me",
+    steps: ["Open your browser's menu (the three dots).", "Tap Install app or Add to Home screen."],
+  },
+  chromium: {
+    title: "Install canvas.me",
+    steps: [
+      "Click the install icon at the right end of the address bar.",
+      "Or open the browser menu and choose Install canvas.me (in Edge: Apps, then Install this site as an app).",
+    ],
+  },
+  unsupported: {
+    title: "Install from another browser",
+    steps: [
+      "This browser can't install web apps.",
+      "Open canvas.me in Chrome, Edge or Safari and use Download app there.",
+      "You can keep designing here in the browser in the meantime.",
+    ],
+  },
+};
+
+export type InstallVariant = "pill" | "icon" | "onAccent" | "link";
+
+const VARIANTS: Record<InstallVariant, string> = {
+  pill: "h-auto gap-2 rounded-full px-4 py-2 text-sm font-medium text-ink-800 shadow-[var(--shadow-hairline)] hover:bg-ink-100 md:h-auto",
+  icon: "h-9 w-9 rounded-full p-0 text-ink-800 shadow-[var(--shadow-hairline)] hover:bg-ink-100 md:h-9 md:w-9",
+  onAccent:
+    "h-auto gap-2 rounded-full bg-white/10 px-5 py-3 text-[15px] font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)] hover:bg-white/20 md:h-auto",
+  link: "h-auto rounded-none px-0 py-0 text-sm font-medium text-ink-600 hover:bg-transparent hover:text-accent-500 md:h-auto",
+};
+
+/**
+ * "Download app": opens the native install prompt where the browser offers one, and otherwise
+ * shows the steps for this browser. Hidden when canvas.me is already running as an installed app.
+ */
+export function InstallButton({
+  variant = "pill",
+  className = "",
+  align = "right",
+}: {
+  variant?: InstallVariant;
+  className?: string;
+  align?: "left" | "right";
+}) {
+  const [mode, setMode] = useState<InstallMode>("installed");
 
   useEffect(() => {
-    const update = () => {
-      if (isStandalone()) return setMode("hidden");
-      if (deferredPrompt) return setMode("prompt");
-      const ios =
-        /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /mac/i.test(navigator.userAgent));
-      setMode(ios ? "ios" : "hidden");
-    };
+    const update = () => setMode(detectMode());
     update();
     window.addEventListener(INSTALLABLE, update);
     return () => window.removeEventListener(INSTALLABLE, update);
   }, []);
 
-  const label = (
-    <>
-      <Download size={16} /> <span>Install app</span>
-    </>
-  );
-  const base = `flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-ink-800 shadow-[var(--shadow-hairline)] hover:bg-ink-100 active:scale-[0.98] ${className}`;
+  if (mode === "installed") return null;
+
+  const label =
+    variant === "icon" ? (
+      <Download size={17} />
+    ) : (
+      <>
+        {variant !== "link" && <Download size={variant === "onAccent" ? 17 : 16} />}
+        <span>Download app</span>
+      </>
+    );
+  const classes = `${VARIANTS[variant]} active:scale-[0.98] ${className}`;
 
   if (mode === "prompt") {
     return (
-      <button
-        className={base}
+      <IconButton
+        title="Download canvas.me as an app"
+        className={classes}
         onClick={async () => {
           const p = deferredPrompt;
           if (!p) return;
           await p.prompt();
           await p.userChoice;
           deferredPrompt = null;
-          setMode("hidden");
+          setMode(detectMode());
         }}
       >
         {label}
-      </button>
+      </IconButton>
     );
   }
-  if (mode === "ios") {
-    return (
-      <Popover title="Install app" align="right" trigger={label} triggerClassName={base}>
-        <div className="w-64 text-sm leading-relaxed text-ink-700">
-          <p className="font-semibold text-ink-900">Add canvas.me to your Home Screen</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>
-              Tap <Share size={14} className="inline align-[-2px]" /> Share in Safari&apos;s toolbar.
-            </li>
-            <li>Choose Add to Home Screen.</li>
-            <li>Tap Add.</li>
-          </ol>
-        </div>
-      </Popover>
-    );
-  }
-  return null;
+
+  const help = HELP[mode];
+  return (
+    <Popover title="Download canvas.me as an app" align={align} trigger={label} triggerClassName={classes}>
+      <div className="w-72 text-left text-sm leading-relaxed text-ink-700">
+        <p className="font-semibold text-ink-900">{help.title}</p>
+        <ol className={`mt-2 space-y-1 ${help.steps.length > 1 && mode !== "unsupported" ? "list-decimal pl-5" : ""}`}>
+          {help.steps.map((step, i) => (
+            <li key={i}>{step}</li>
+          ))}
+        </ol>
+        {mode !== "unsupported" && (
+          <p className="mt-3 text-xs text-ink-500">It opens in its own window and works offline.</p>
+        )}
+      </div>
+    </Popover>
+  );
 }
 
 type LaunchParams = { files: { getFile: () => Promise<File> }[] };

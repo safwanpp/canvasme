@@ -10,7 +10,7 @@ import {
 import { Bebas_Neue, Caveat, Playfair_Display } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { Logo, LogoMark } from "@/components/Logo";
 import { InstallButton } from "@/components/Pwa";
 import { LayerSort } from "@/components/landing/LayerSort";
 import { RevealGroup } from "@/components/landing/RevealGroup";
@@ -86,17 +86,6 @@ function PrimaryButton({ href, children, small }: { href: string; children: Reac
       >
         <ArrowRight size={small ? 15 : 17} />
       </span>
-    </Link>
-  );
-}
-
-function TextLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="border-b border-ink-300 py-1 text-[15px] font-medium text-ink-900 transition-colors duration-300 hover:border-accent-500 hover:text-accent-500"
-    >
-      {children}
     </Link>
   );
 }
@@ -232,7 +221,8 @@ export default function Home() {
               </a>
             ))}
           </div>
-          <InstallButton className="hidden py-[9px] md:flex" />
+          <InstallButton variant="icon" className="sm:hidden" />
+          <InstallButton className="hidden py-[9px] sm:flex" />
           <PrimaryButton href="/app" small>
             Open editor
           </PrimaryButton>
@@ -250,7 +240,7 @@ export default function Home() {
             </p>
             <div className="mt-9 flex flex-col items-start gap-5 sm:flex-row sm:items-center">
               <PrimaryButton href="/app">Start designing</PrimaryButton>
-              <TextLink href="/app">Open a .canvasme file</TextLink>
+              <InstallButton align="left" className="px-5 py-3 text-[15px]" />
             </div>
             <ul className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm">
               {["No sign-up", "Saved on your device", "Free exports"].map((t) => (
@@ -490,6 +480,45 @@ export default function Home() {
           </ul>
         </section>
 
+        {/* Install */}
+        <section id="install" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-20 sm:px-6 sm:pb-28">
+          <Bezel>
+            <div className="grid items-center gap-10 rounded-[var(--radius-core)] bg-surface px-6 py-10 shadow-[var(--shadow-soft)] sm:px-10 lg:grid-cols-[1.3fr_1fr] lg:py-14">
+              <div>
+                <SectionTitle sub="Download canvas.me as an app on your computer, tablet or phone. It's the same free editor, with its own icon and window.">
+                  Take it with you
+                </SectionTitle>
+                <ul className="mt-7 space-y-3">
+                  {[
+                    "Opens in its own window, without browser tabs",
+                    "Works offline after the first visit",
+                    "Double-click a .canvasme file to open it (Chrome and Edge)",
+                  ].map((t) => (
+                    <li key={t} className="flex gap-3">
+                      <Check size={18} className="mt-0.5 shrink-0 text-accent-500" />
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-8">
+                  <InstallButton align="left" className="px-5 py-3 text-[15px]" />
+                </div>
+              </div>
+              <div className="flex flex-col items-center gap-5 lg:items-end">
+                <div className="flex flex-col items-center gap-2.5">
+                  <span className="grid h-28 w-28 place-items-center rounded-[28px] bg-surface shadow-[var(--shadow-hairline),var(--shadow-soft)]">
+                    <LogoMark size={64} id="install" />
+                  </span>
+                  <span className="text-sm font-medium text-ink-900">canvas.me</span>
+                </div>
+                <p className="max-w-[240px] text-center font-mono text-xs leading-relaxed text-ink-500 lg:text-right">
+                  Windows, macOS, ChromeOS, Android, iPhone and iPad
+                </p>
+              </div>
+            </div>
+          </Bezel>
+        </section>
+
         {/* FAQ */}
         <section id="faq" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-20 sm:px-6 sm:pb-28">
           <div className="grid gap-10 lg:grid-cols-[1fr_1.6fr]">
@@ -520,9 +549,10 @@ export default function Home() {
               <p className="relative mx-auto mt-4 max-w-md text-[17px] text-white/75">
                 Free, private and ready on any device. No account needed.
               </p>
+              <div className="relative mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/app"
-                className={`group relative mt-9 inline-flex items-center gap-3.5 rounded-full bg-white py-[7px] pl-6 pr-[7px] text-[15px] font-semibold text-accent-600 shadow-[0_16px_32px_-16px_rgba(8,12,30,0.6)] hover:bg-accent-50 active:scale-[0.98] ${spring}`}
+                className={`group relative inline-flex items-center gap-3.5 rounded-full bg-white py-[7px] pl-6 pr-[7px] text-[15px] font-semibold text-accent-600 shadow-[0_16px_32px_-16px_rgba(8,12,30,0.6)] hover:bg-accent-50 active:scale-[0.98] ${spring}`}
               >
                 Start designing
                 <span
@@ -531,6 +561,8 @@ export default function Home() {
                   <ArrowRight size={17} />
                 </span>
               </Link>
+              <InstallButton variant="onAccent" align="left" />
+              </div>
             </div>
           </Bezel>
         </section>
@@ -543,6 +575,7 @@ export default function Home() {
             <span className="text-ink-500">Free to use. No account needed.</span>
           </span>
           <span className="flex items-center gap-5">
+            <InstallButton variant="link" />
             <a
               href="https://github.com/safwanpp/canvasme"
               className="font-medium text-ink-600 transition-colors duration-300 hover:text-accent-500"
