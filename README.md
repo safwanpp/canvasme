@@ -14,6 +14,7 @@ A free design editor that runs entirely in your browser. Make social posts, slid
 - **No account**: designs, images and thumbnails are stored in your browser's IndexedDB and saved automatically.
 - **Work files**: download a `.canvasme` file (a zip with the design and its images) to back up a design or move it to another computer, then open it again to keep editing.
 - **Export**: PNG and JPG at 2×, all pages as a zip, or a multi-page PDF.
+- **Installable app**: install it from the browser (or Add to Home Screen on iPhone) and it opens in its own window and works offline after the first visit. On Chromium desktop, `.canvasme` files open straight into the installed app.
 
 ## Keyboard shortcuts
 
@@ -59,7 +60,7 @@ docs/spec.md         behaviour spec the editor was built from
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm run build      # static site in out/
+npm run build      # static site in out/, then generates out/sw.js
 ```
 
 Deploy to Cloudflare Pages:
