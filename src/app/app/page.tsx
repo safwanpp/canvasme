@@ -2,6 +2,7 @@
 
 import { Copy, Download, FolderOpen, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Popover } from "@/components/ui";
@@ -121,8 +122,8 @@ export default function Dashboard() {
       }}
     >
       <header className="flex h-14 items-center justify-between border-b border-ink-200 bg-surface/80 px-4 backdrop-blur-xl sm:px-6">
-        <Link href="/" className="font-display text-lg font-bold tracking-tight">
-          canvas<span className="text-accent-500">.me</span>
+        <Link href="/" aria-label="canvas.me home" className="text-[15px]">
+          <Logo id="dash" />
         </Link>
         <button
           onClick={() => fileInput.current?.click()}

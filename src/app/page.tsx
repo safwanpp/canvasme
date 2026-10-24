@@ -1,5 +1,6 @@
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 
 const PRESETS = [
   { label: "Instagram post", size: "1080x1080", w: 1, h: 1 },
@@ -104,8 +105,8 @@ export default function Home() {
 
       <header className="sticky top-0 z-40 px-4 pt-4 sm:px-6">
         <nav className="mx-auto flex max-w-6xl items-center gap-3 rounded-full bg-surface/80 py-1.5 pl-5 pr-1.5 shadow-[inset_0_0_0_1px_rgba(14,21,48,0.06),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-xl backdrop-saturate-150">
-          <Link href="/" className="mr-auto text-[15px] font-bold tracking-[-0.01em] text-ink-900">
-            canvas<span className="text-accent-500">.me</span>
+          <Link href="/" aria-label="canvas.me home" className="mr-auto text-[15px]">
+            <Logo id="nav" />
           </Link>
           <PrimaryButton href="/app" small>
             Open the editor
@@ -236,8 +237,8 @@ export default function Home() {
 
       <footer className="relative border-t border-ink-200">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-10 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <span className="font-bold text-ink-900">
-            canvas<span className="text-accent-500">.me</span>
+          <span className="inline-flex items-center">
+            <Logo id="foot" size={18} />
             <span className="ml-3 font-normal text-ink-500">Free to use. No account needed.</span>
           </span>
           <a

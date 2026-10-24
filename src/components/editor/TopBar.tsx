@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, CloudOff, Download, FolderOpen, Home, Loader2, Redo2, Undo2 } from "lucide-react";
+import { Check, CloudOff, Download, FolderOpen, Loader2, Redo2, Undo2 } from "lucide-react";
 import Link from "next/link";
+import { Logo } from "../Logo";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { exportImages, exportPdf } from "@/lib/export";
@@ -38,8 +39,7 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-ink-200 bg-surface/80 px-3 text-ink-900 backdrop-blur-xl">
       <Link href="/app" title="All designs" className="flex items-center gap-2 rounded-full px-3 py-1.5 hover:bg-ink-100">
-        <Home size={16} />
-        <span className="text-sm font-bold tracking-tight">canvas<span className="text-accent-500">.me</span></span>
+        <Logo id="top" size={20} className="text-sm" />
       </Link>
       <span className="mx-1 h-6 w-px bg-ink-200" />
       <IconButton title="Undo (Ctrl+Z)" disabled={!canUndo} onClick={st.undo} className={BAR_BTN}>

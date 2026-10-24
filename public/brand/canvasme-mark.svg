@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400" fill="none">
+  <defs>
+    <linearGradient id="g" x1="200" y1="0" x2="200" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9D7FF4"/>
+      <stop offset="1" stop-color="#0755FF"/>
+    </linearGradient>
+    <mask id="counter" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="400">
+      <rect width="400" height="400" fill="#fff"/>
+      <rect x="80" y="92" width="240" height="216" rx="16" fill="#000"/>
+    </mask>
+  </defs>
+  <g fill="url(#g)" mask="url(#counter)">
+    <rect x="80" y="0" width="240" height="145" rx="16"/>
+    <rect x="80" y="255" width="240" height="145" rx="16"/>
+    <rect x="0" y="73" width="120" height="254" rx="16"/>
+    <rect x="240" y="73" width="160" height="72" rx="16"/>
+    <rect x="240" y="255" width="160" height="72" rx="16"/>
+  </g>
+</svg>

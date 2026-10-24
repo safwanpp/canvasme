@@ -1,3 +1,5 @@
+<img src="public/brand/canvasme-mark.svg" alt="" width="56" height="56">
+
 # canvas.me
 
 A free design editor that runs entirely in your browser. Make social posts, slides and posters without an account. Your designs are saved on your own device.
