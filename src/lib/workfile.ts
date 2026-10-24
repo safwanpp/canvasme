@@ -65,12 +65,27 @@ export async function importWorkfile(file: File): Promise<Design> {
   const parsed = Design.safeParse(designJson);
   if (!parsed.success) throw new Error("The design inside this file is damaged.");
 
+  // Give every imported asset a fresh id so a file can never overwrite
+  // blobs that belong to designs already in this browser.
   const now = Date.now();
-  const design: Design = { ...parsed.data, id: uid(), createdAt: now, updatedAt: now };
+  const idMap = new Map(Object.keys(parsed.data.assets).map((old) => [old, uid()]));
+  const design: Design = {
+    ...parsed.data,
+    id: uid(),
+    createdAt: now,
+    updatedAt: now,
+    assets: Object.fromEntries(Object.entries(parsed.data.assets).map(([old, meta]) => [idMap.get(old)!, meta])),
+    pages: parsed.data.pages.map((p) => ({
+      ...p,
+      elements: p.elements.map((e) =>
+        e.type === "image" ? { ...e, assetId: idMap.get(e.assetId) ?? e.assetId } : e,
+      ),
+    })),
+  };
 
-  for (const [id, meta] of Object.entries(design.assets)) {
-    const data = files[`assets/${id}.${extFor(meta.mime)}`];
-    if (data) await saveAsset(id, new Blob([data as BlobPart], { type: meta.mime }));
+  for (const [oldId, meta] of Object.entries(parsed.data.assets)) {
+    const data = files[`assets/${oldId}.${extFor(meta.mime)}`];
+    if (data) await saveAsset(idMap.get(oldId)!, new Blob([data as BlobPart], { type: meta.mime }));
   }
   await saveDesign(design);
   if (files["thumbnail.png"]) {

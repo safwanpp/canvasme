@@ -73,8 +73,13 @@ export const Page = z.object({
   elements: z.array(Element),
 });
 
+// Raster types only: assets become same-origin blob: URLs, so active types
+// (text/html, image/svg+xml) must never be stored.
+export const IMAGE_MIMES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"] as const;
+export const isAllowedImage = (mime: string) => (IMAGE_MIMES as readonly string[]).includes(mime);
+
 export const AssetMeta = z.object({
-  mime: z.string(),
+  mime: z.enum(IMAGE_MIMES),
   name: z.string(),
   width: z.number(),
   height: z.number(),

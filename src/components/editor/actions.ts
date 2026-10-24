@@ -2,7 +2,7 @@
 
 import { DEFAULT_FONT, ensureFont } from "@/lib/fonts";
 import { primeAssetImage } from "@/lib/images";
-import { type Element, type ShapeKind, uid } from "@/lib/model";
+import { type Element, type IMAGE_MIMES, isAllowedImage, type ShapeKind, uid } from "@/lib/model";
 import { saveAsset } from "@/lib/storage";
 import { normalize, useEditor } from "@/store/editor";
 
@@ -116,11 +116,11 @@ export function insertAsset(assetId: string, at?: { x: number; y: number }) {
 }
 
 export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
-const SKIPPED = "Some files were skipped (not images or over 25 MB).";
+const SKIPPED = "Some files were skipped. Use PNG, JPG, GIF, WebP or AVIF under 25 MB.";
 
 /** Store image files as design assets and place them on the current page. Returns a warning, if any. */
 export async function addImageFiles(files: File[], at?: { x: number; y: number }) {
-  const images = files.filter((f) => f.type.startsWith("image/") && f.size <= MAX_IMAGE_BYTES);
+  const images = files.filter((f) => isAllowedImage(f.type) && f.size <= MAX_IMAGE_BYTES);
   const warning = images.length < files.length ? SKIPPED : null;
   const added: { id: string; file: File; img: HTMLImageElement }[] = [];
   for (const file of images) {
@@ -142,7 +142,7 @@ export async function addImageFiles(files: File[], at?: { x: number; y: number }
   );
   st.mutate((dd) => {
     for (const { id, file, img } of added) {
-      dd.assets[id] = { mime: file.type, name: file.name, width: img.naturalWidth, height: img.naturalHeight };
+      dd.assets[id] = { mime: file.type as (typeof IMAGE_MIMES)[number], name: file.name, width: img.naturalWidth, height: img.naturalHeight };
     }
     dd.pages.find((p) => p.id === st.pageId)?.elements.push(...els);
   });
