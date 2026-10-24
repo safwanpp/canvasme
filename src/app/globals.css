@@ -119,3 +119,51 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* ── Landing bento micro-animations (transform/opacity only, paused for reduced motion) ── */
+.reveal {
+  transition:
+    opacity 700ms var(--ease-spring),
+    transform 700ms var(--ease-spring);
+  transition-delay: calc(var(--i, 0) * 90ms);
+}
+[data-armed="true"]:not([data-shown="true"]) .reveal {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+@keyframes specimen {
+  0%, 20% { transform: translateY(0); }
+  25%, 45% { transform: translateY(-25%); }
+  50%, 70% { transform: translateY(-50%); }
+  75%, 95% { transform: translateY(-75%); }
+  100% { transform: translateY(0); }
+}
+.anim-specimen { animation: specimen 9s var(--ease-spring) infinite; }
+
+@keyframes float-a { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-10px) rotate(6deg); } }
+@keyframes float-b { 0%, 100% { transform: translateY(0) rotate(12deg); } 50% { transform: translateY(8px) rotate(-4deg); } }
+.anim-float-a { animation: float-a 5s ease-in-out infinite; }
+.anim-float-b { animation: float-b 6s ease-in-out infinite; }
+.anim-float-c { animation: float-a 7s ease-in-out -2s infinite; }
+
+@keyframes corner-round { 0%, 15% { border-radius: 4px; } 50%, 65% { border-radius: 32px; } 100% { border-radius: 4px; } }
+.anim-round { animation: corner-round 5s var(--ease-spring) infinite; }
+
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.anim-marquee { animation: marquee 18s linear infinite; }
+
+@keyframes pinch-l { 0%, 15% { transform: translate(0, 0); } 50%, 65% { transform: translate(-18px, 14px); } 100% { transform: translate(0, 0); } }
+@keyframes pinch-r { 0%, 15% { transform: translate(0, 0); } 50%, 65% { transform: translate(18px, -14px); } 100% { transform: translate(0, 0); } }
+@keyframes pinch-zoom { 0%, 15% { transform: scale(1); } 50%, 65% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.anim-pinch-l { animation: pinch-l 3.6s var(--ease-spring) infinite; }
+.anim-pinch-r { animation: pinch-r 3.6s var(--ease-spring) infinite; }
+.anim-pinch-zoom { animation: pinch-zoom 3.6s var(--ease-spring) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-specimen, .anim-float-a, .anim-float-b, .anim-float-c, .anim-round, .anim-marquee,
+  .anim-pinch-l, .anim-pinch-r, .anim-pinch-zoom {
+    animation: none;
+  }
+  .reveal { transition: none; }
+}

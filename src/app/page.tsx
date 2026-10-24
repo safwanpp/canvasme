@@ -3,51 +3,20 @@ import {
   ArrowUpRight,
   Check,
   FileArchive,
-  Files,
   FileText,
   Folder,
   ImageIcon,
-  Layers,
-  Shapes,
-  Smartphone,
-  Type,
 } from "lucide-react";
+import { Bebas_Neue, Caveat, Playfair_Display } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { LayerSort } from "@/components/landing/LayerSort";
+import { RevealGroup } from "@/components/landing/RevealGroup";
 
-const TOOLS = [
-  {
-    icon: Type,
-    title: "Text that looks right",
-    body: "17 typefaces including Geist, Bebas Neue and Playfair. Size, colour, bold, italic, alignment, letter and line spacing.",
-  },
-  {
-    icon: Shapes,
-    title: "Shapes and lines",
-    body: "Squares, circles, triangles, stars and hexagons with fills, borders and rounded corners. Lines, dashes and arrows.",
-  },
-  {
-    icon: ImageIcon,
-    title: "Your own images",
-    body: "Upload, drag in or paste PNG, JPG, GIF, WebP or AVIF. Round the corners and place them anywhere.",
-  },
-  {
-    icon: Layers,
-    title: "Layers and groups",
-    body: "Reorder, lock, hide and group elements. Snapping guides line things up as you drag.",
-  },
-  {
-    icon: Files,
-    title: "Multiple pages",
-    body: "Build a carousel or a slide deck in one design. Duplicate, reorder and export every page at once.",
-  },
-  {
-    icon: Smartphone,
-    title: "Works on your phone",
-    body: "Pinch to zoom, tap to select, and a bottom panel built for thumbs. Same designs, same tools.",
-  },
-];
+const bebas = Bebas_Neue({ subsets: ["latin"], weight: "400" });
+const playfair = Playfair_Display({ subsets: ["latin"], style: "italic", weight: "600" });
+const caveat = Caveat({ subsets: ["latin"], weight: "600" });
 
 const FLOW = [
   { step: "Make", body: "Pick a size, then add text, shapes and your own images." },
@@ -100,7 +69,7 @@ function PrimaryButton({ href, children, small }: { href: string; children: Reac
   return (
     <Link
       href={href}
-      className={`group inline-flex shrink-0 items-center rounded-full bg-accent-500 font-semibold text-white shadow-[var(--shadow-cta)] hover:bg-accent-600 ${spring} ${
+      className={`group inline-flex shrink-0 items-center rounded-full bg-accent-500 font-semibold text-white shadow-[var(--shadow-cta)] hover:bg-accent-600 active:scale-[0.98] ${spring} ${
         small ? "gap-2.5 py-[5px] pl-[18px] pr-[5px] text-sm" : "gap-3.5 py-[7px] pl-6 pr-[7px] text-[15px]"
       }`}
     >
@@ -146,6 +115,30 @@ function SectionTitle({ children, sub, dark }: { children: React.ReactNode; sub?
         {children}
       </h2>
       {sub && <p className={`mt-4 text-[17px] leading-relaxed ${dark ? "text-white/65" : ""}`}>{sub}</p>}
+    </div>
+  );
+}
+
+function Tile({
+  i,
+  span,
+  title,
+  body,
+  children,
+}: {
+  i: number;
+  span: string;
+  title: string;
+  body: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`reveal min-w-0 ${span}`} style={{ "--i": i } as React.CSSProperties}>
+      <div className="flex h-56 items-center justify-center overflow-hidden rounded-[var(--radius-core)] bg-surface px-8 shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_1px_2px_rgba(14,21,48,0.04),var(--shadow-hairline)]">
+        {children}
+      </div>
+      <h3 className="mt-5 text-lg font-semibold tracking-[-0.015em] text-ink-900">{title}</h3>
+      <p className="mt-1.5 max-w-[46ch] leading-relaxed">{body}</p>
     </div>
   );
 }
@@ -243,17 +236,17 @@ export default function Home() {
       <main className="relative">
         {/* Hero */}
         <section className="mx-auto grid max-w-6xl items-center gap-14 px-4 pb-20 pt-14 sm:px-6 sm:pt-20 lg:grid-cols-[1.15fr_1fr] lg:gap-10 lg:pb-28">
-          <div className="text-center lg:text-left">
+          <div>
             <SelectedHeadline />
-            <p className="mx-auto mt-10 max-w-md text-[17px] leading-relaxed lg:mx-0">
+            <p className="mt-10 max-w-md text-[17px] leading-relaxed">
               A free design editor that runs in your browser. Make posts, slides and posters{" "}
               <strong className="font-semibold text-ink-900">without an account</strong>, on your laptop or your phone.
             </p>
-            <div className="mt-9 flex flex-col items-center gap-5 sm:flex-row sm:justify-center lg:justify-start">
+            <div className="mt-9 flex flex-col items-start gap-5 sm:flex-row sm:items-center">
               <PrimaryButton href="/app">Start designing</PrimaryButton>
               <TextLink href="/app">Open a .canvasme file</TextLink>
             </div>
-            <ul className="mt-9 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm lg:justify-start">
+            <ul className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm">
               {["No sign-up", "Saved on your device", "Free exports"].map((t) => (
                 <li key={t} className="flex items-center gap-1.5">
                   <Check size={15} className="text-accent-500" /> {t}
@@ -296,20 +289,113 @@ export default function Home() {
           </Bezel>
         </section>
 
-        {/* Tools */}
+        {/* Tools: asymmetric bento, each tile a small live demo of the feature */}
         <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-20 sm:px-6 sm:pb-28">
-          <SectionTitle>The tools you reach for</SectionTitle>
-          <ul className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {TOOLS.map(({ icon: Icon, title, body }) => (
-              <li key={title} className={`${card} px-6 pb-7 pt-6`}>
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-accent-100 text-accent-500">
-                  <Icon size={19} />
-                </span>
-                <h3 className="mt-5 text-lg font-semibold tracking-[-0.015em] text-ink-900">{title}</h3>
-                <p className="mt-2 leading-relaxed">{body}</p>
-              </li>
-            ))}
-          </ul>
+          <SectionTitle sub="Everything you need for posts, slides and posters. Nothing you have to learn first.">
+            The tools you reach for
+          </SectionTitle>
+          <RevealGroup className="mt-10 grid gap-x-4 gap-y-10 md:grid-cols-2 lg:grid-cols-6">
+            <Tile
+              i={0}
+              span="md:col-span-2 lg:col-span-4"
+              title="Text that looks right"
+              body="17 typefaces, from Geist to Bebas Neue and Playfair. Size, colour, weight, alignment, letter and line spacing."
+            >
+              <div className="h-[120px] overflow-hidden">
+                <div className="anim-specimen">
+                  {[
+                    ["Geist", ""],
+                    ["Bebas Neue", bebas.className],
+                    ["Playfair Display", playfair.className],
+                    ["Caveat", caveat.className],
+                  ].map(([name, cls]) => (
+                    <div key={name} className="flex h-[120px] items-center gap-6">
+                      <span className={`text-[92px] leading-none text-ink-900 ${cls}`}>Aa</span>
+                      <span className="font-mono text-xs text-ink-500">{name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Tile>
+
+            <Tile
+              i={1}
+              span="lg:col-span-2"
+              title="Shapes and lines"
+              body="Squares, circles, triangles, stars and hexagons with fills, borders and rounded corners."
+            >
+              <div className="relative h-32 w-48">
+                <span className="anim-float-a absolute left-2 top-6 h-16 w-16 rounded-full bg-accent-500" />
+                <span className="anim-float-b absolute left-[72px] top-0 h-14 w-14 rounded-[10px] bg-lavender" />
+                <span
+                  className="anim-float-c absolute right-2 top-12 h-16 w-16 bg-ink-900"
+                  style={{ clipPath: "polygon(50% 0, 100% 100%, 0 100%)" }}
+                />
+              </div>
+            </Tile>
+
+            <Tile
+              i={2}
+              span="lg:col-span-2"
+              title="Your own images"
+              body="Upload, drag in or paste PNG, JPG, GIF, WebP or AVIF, then round the corners."
+            >
+              <div className="anim-round relative h-28 w-44 overflow-hidden bg-gradient-to-b from-lavender to-accent-500">
+                <svg viewBox="0 0 176 112" className="absolute inset-x-0 bottom-0 h-16 w-full" aria-hidden>
+                  <path d="M0 112 L52 54 L86 86 L118 44 L176 112 Z" fill="rgba(14,21,48,0.55)" />
+                </svg>
+                <span className="absolute right-6 top-5 h-5 w-5 rounded-full bg-white/85" />
+              </div>
+            </Tile>
+
+            <Tile
+              i={3}
+              span="md:col-span-2 lg:col-span-4"
+              title="Layers and groups"
+              body="Reorder, lock, hide and group elements. Snapping guides line things up while you drag."
+            >
+              <LayerSort />
+            </Tile>
+
+            <Tile
+              i={4}
+              span="lg:col-span-4"
+              title="Multiple pages"
+              body="Build a carousel or a slide deck in one design, then export every page at once."
+            >
+              <div className="w-full overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_12%,black_88%,transparent)]">
+                <div className="anim-marquee flex w-max gap-3">
+                  {[0, 1].flatMap((copy) =>
+                    ["bg-ink-900", "bg-accent-500", "bg-lavender", "bg-surface", "bg-ink-900", "bg-accent-200"].map(
+                      (bg, i) => (
+                        <span
+                          key={`${copy}-${i}`}
+                          className={`relative block h-28 w-[90px] shrink-0 rounded-[8px] shadow-[var(--shadow-hairline)] ${bg}`}
+                        >
+                          <span className="absolute bottom-1.5 left-1.5 rounded bg-white/85 px-1 font-mono text-[10px] text-ink-600">
+                            {i + 1}
+                          </span>
+                        </span>
+                      ),
+                    ),
+                  )}
+                </div>
+              </div>
+            </Tile>
+
+            <Tile
+              i={5}
+              span="lg:col-span-2"
+              title="Works on your phone"
+              body="Pinch to zoom, tap to select, and a bottom panel built for thumbs."
+            >
+              <div className="relative grid h-40 w-24 place-items-center overflow-hidden rounded-[22px] bg-ink-50 shadow-[inset_0_0_0_3px_var(--color-ink-900)]">
+                <span className="anim-pinch-zoom block h-10 w-10 rounded-[8px] bg-accent-500" />
+                <span className="anim-pinch-l absolute left-[30%] top-[52%] h-5 w-5 rounded-full bg-ink-900/25 shadow-[inset_0_0_0_2px_rgba(14,21,48,0.4)]" />
+                <span className="anim-pinch-r absolute right-[30%] top-[38%] h-5 w-5 rounded-full bg-ink-900/25 shadow-[inset_0_0_0_2px_rgba(14,21,48,0.4)]" />
+              </div>
+            </Tile>
+          </RevealGroup>
         </section>
 
         {/* Privacy and work files */}
@@ -379,7 +465,7 @@ export default function Home() {
                 <li key={p.label}>
                   <Link
                     href={`/app?size=${p.size}&name=${encodeURIComponent(p.label)}`}
-                    className={`group flex h-full flex-col gap-4 rounded-[var(--radius-core)] bg-surface p-5 shadow-[var(--shadow-hairline)] hover:-translate-y-0.5 hover:shadow-[inset_0_0_0_1px_rgba(62,58,168,0.3),var(--shadow-soft)] ${spring}`}
+                    className={`group flex h-full flex-col gap-4 rounded-[var(--radius-core)] bg-surface p-5 shadow-[var(--shadow-hairline)] hover:-translate-y-0.5 hover:shadow-[inset_0_0_0_1px_rgba(62,58,168,0.3),var(--shadow-soft)] active:scale-[0.98] ${spring}`}
                   >
                     <span className="flex h-16 items-end">
                       <span
@@ -422,10 +508,6 @@ export default function Home() {
         <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6 sm:pb-28">
           <Bezel>
             <div className="relative overflow-hidden rounded-[var(--radius-core)] bg-accent-500 px-6 py-14 text-center text-white sm:px-10 sm:py-20">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -bottom-40 left-1/2 h-80 w-[640px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(157,127,244,0.55),rgba(157,127,244,0))]"
-              />
               <h2 className="relative mx-auto max-w-xl text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] text-balance sm:text-[44px]">
                 Your next post is one tab away
               </h2>
@@ -434,7 +516,7 @@ export default function Home() {
               </p>
               <Link
                 href="/app"
-                className={`group relative mt-9 inline-flex items-center gap-3.5 rounded-full bg-white py-[7px] pl-6 pr-[7px] text-[15px] font-semibold text-accent-600 shadow-[0_16px_32px_-16px_rgba(8,12,30,0.6)] hover:bg-accent-50 ${spring}`}
+                className={`group relative mt-9 inline-flex items-center gap-3.5 rounded-full bg-white py-[7px] pl-6 pr-[7px] text-[15px] font-semibold text-accent-600 shadow-[0_16px_32px_-16px_rgba(8,12,30,0.6)] hover:bg-accent-50 active:scale-[0.98] ${spring}`}
               >
                 Start designing
                 <span
