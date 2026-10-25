@@ -2,6 +2,10 @@ import type { BgRequest, BgResponse } from "./bgRemove.worker";
 
 export type BgProgress = { phase: "download"; loaded: number; total: number } | { phase: "processing" };
 
+/** Download percentage, or null when nothing is really downloading (a cached model reports 0 of N briefly). */
+export const downloadPercent = (p: BgProgress | null | undefined) =>
+  p?.phase === "download" && p.total && p.loaded > 0 && p.loaded < p.total ? Math.round((p.loaded / p.total) * 100) : null;
+
 /** Largest one-time model download (fp16 on WebGPU; the CPU model is 44 MB), for the confirmation text. */
 export const MODEL_SIZE_MB = 90;
 

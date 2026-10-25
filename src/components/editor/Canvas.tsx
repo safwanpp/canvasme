@@ -6,10 +6,11 @@ import { Circle, Group, Layer, Line, Rect, Stage, Transformer } from "react-konv
 import { useRouter } from "next/navigation";
 import { ensureFonts, FONTS } from "@/lib/fonts";
 import type { Element } from "@/lib/model";
+import { downloadPercent } from "@/lib/bgRemove";
 import { lineBetween, lineEnds, pageFonts } from "@/lib/render";
 import { importWorkfile, WORKFILE_EXT } from "@/lib/workfile";
 import { currentPage, normalize, useEditor } from "@/store/editor";
-import { useView } from "@/store/view";
+import { type BgJob, useView } from "@/store/view";
 import { useMediaQuery } from "../ui";
 import {
   ASSET_DRAG_TYPE,
@@ -50,7 +51,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const page = useEditor(currentPage);
   const selected = useEditor((s) => s.selected);
   const editingTextId = useEditor((s) => s.editingTextId);
-  const { scale, x, y, container, fitTick, spaceDown, tool, pen, shapeKind } = useView();
+  const { scale, x, y, container, fitTick, spaceDown, tool, pen, shapeKind, bgJob } = useView();
 
   const [guides, setGuides] = useState<Guide[]>([]);
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -530,6 +531,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const W = design.width;
   const H = design.height;
   const editingEl = editingTextId ? byId.get(editingTextId) : undefined;
+  const bgEl = bgJob && !bgJob.error ? byId.get(bgJob.elId) : undefined;
 
   const anchors =
     single?.type === "text"
@@ -708,6 +710,75 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
         </Stage>
       )}
       {editingEl?.type === "text" && <TextEditor el={editingEl} scale={scale} origin={{ x, y }} />}
+      {bgEl && bgJob && <AiMagicOverlay el={bgEl} job={bgJob} scale={scale} origin={{ x, y }} />}
+    </div>
+  );
+}
+
+// Sparkle positions (% of the image), sizes and delays, scattered so they don't twinkle in step.
+const SPARKS = [
+  { left: 14, top: 20, size: 14, delay: 0 },
+  { left: 78, top: 16, size: 18, delay: 0.5 },
+  { left: 66, top: 70, size: 12, delay: 1 },
+  { left: 22, top: 74, size: 16, delay: 1.3 },
+  { left: 48, top: 34, size: 10, delay: 0.8 },
+  { left: 88, top: 52, size: 11, delay: 1.6 },
+];
+
+/** "AI at work" shimmer over an image while its background is being removed. */
+function AiMagicOverlay({
+  el,
+  job,
+  scale,
+  origin,
+}: {
+  el: Element;
+  job: BgJob;
+  scale: number;
+  origin: { x: number; y: number };
+}) {
+  const pct = downloadPercent(job.progress);
+  const label = pct === null ? "Removing background…" : `Downloading model ${pct}%`;
+  const w = el.width * scale;
+  const h = el.height * scale;
+  return (
+    <div
+      aria-live="polite"
+      className="ai-magic"
+      style={{
+        left: origin.x + el.x * scale,
+        top: origin.y + el.y * scale,
+        width: w,
+        height: h,
+        transform: `rotate(${el.rotation}deg)`,
+      }}
+    >
+      <div className="ai-magic__ring" />
+      <div className="ai-magic__clip">
+        <div className="ai-magic__veil" />
+        <div className="ai-magic__tint" />
+        <div className="ai-magic__sweep" />
+        {SPARKS.map((sp, i) => (
+          <svg
+            key={i}
+            className="ai-magic__spark"
+            viewBox="0 0 24 24"
+            width={sp.size}
+            height={sp.size}
+            style={{ left: `${sp.left}%`, top: `${sp.top}%`, animationDelay: `${sp.delay}s` }}
+          >
+            <path fill="currentColor" d="M12 0c.8 6.4 5.6 11.2 12 12-6.4.8-11.2 5.6-12 12-.8-6.4-5.6-11.2-12-12C6.4 11.2 11.2 6.4 12 0z" />
+          </svg>
+        ))}
+      </div>
+      {w > 90 && h > 40 && (
+        <span className="ai-magic__label flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-accent-600 shadow-[var(--shadow-soft)] backdrop-blur">
+          <svg viewBox="0 0 24 24" width={13} height={13} className="animate-spin [animation-duration:2.4s]">
+            <path fill="currentColor" d="M12 0c.8 6.4 5.6 11.2 12 12-6.4.8-11.2 5.6-12 12-.8-6.4-5.6-11.2-12-12C6.4 11.2 11.2 6.4 12 0z" />
+          </svg>
+          {label}
+        </span>
+      )}
     </div>
   );
 }

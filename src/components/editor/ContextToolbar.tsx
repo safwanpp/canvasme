@@ -36,7 +36,7 @@ import { ensureFont } from "@/lib/fonts";
 import type { Element } from "@/lib/model";
 import { currentPage, useEditor } from "@/store/editor";
 import { ColorInput, Divider, IconButton, Popover, Slider } from "../ui";
-import { MODEL_SIZE_MB, modelDownloaded } from "@/lib/bgRemove";
+import { downloadPercent, MODEL_SIZE_MB, modelDownloaded } from "@/lib/bgRemove";
 import { useView } from "@/store/view";
 import { removeImageBackground } from "./actions";
 import { FontPicker } from "./FontPicker";
@@ -351,16 +351,8 @@ function BgRemover({ elId }: { elId: string }) {
   const job = useView((s) => s.bgJob);
   const mine = job?.elId === elId ? job : null;
   const busy = !!job && !job.error;
-  const p = mine?.progress;
-  const status = mine?.error
-    ? "Retry"
-    : !mine
-      ? "BG Remover"
-      : p?.phase === "download"
-        ? `Downloading ${p.total ? Math.round((p.loaded / p.total) * 100) : 0}%`
-        : p?.phase === "processing"
-          ? "Removing…"
-          : "Starting…";
+  const pct = downloadPercent(mine?.progress);
+  const status = mine?.error ? "Retry" : !mine ? "BG Remover" : pct !== null ? `Downloading ${pct}%` : "Removing…";
   const ready = modelDownloaded();
   return (
     <Popover
