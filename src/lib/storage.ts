@@ -51,7 +51,7 @@ export const loadThumb = (id: string) => get<Blob>(id, db().thumbs);
 
 // Assets can be shared between designs (duplicate / re-import), so only drop
 // blobs that no remaining design references.
-async function collectOrphanAssets() {
+export async function collectOrphanAssets() {
   const used = new Set<string>();
   for (const d of await values<Design>(db().designs)) {
     for (const id of Object.keys(d.assets)) used.add(id);

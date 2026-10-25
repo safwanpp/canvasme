@@ -2,7 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { z } from "zod";
 import { importFonts, getUploadedFont } from "./customFonts";
 import { FONTS } from "./fonts";
-import { Design, FORMAT_VERSION, type FontMeta, uid } from "./model";
+import { Design, FORMAT_VERSION, type FontMeta, pruneAssets, uid } from "./model";
 import { loadAsset, saveAsset, saveDesign, saveThumb } from "./storage";
 import { renderThumbnail } from "./render";
 
@@ -18,7 +18,9 @@ const Manifest = z.object({
 
 const extFor = (mime: string) => mime.split("/")[1]?.replace("jpeg", "jpg").replace("svg+xml", "svg") ?? "bin";
 
-export async function exportWorkfile(design: Design): Promise<Blob> {
+export async function exportWorkfile(full: Design): Promise<Blob> {
+  // Leave out earlier erase versions and other generated bitmaps nothing uses.
+  const design = pruneAssets(full);
   const files: Record<string, Uint8Array> = {
     "manifest.json": strToU8(
       JSON.stringify({ format: "canvasme", version: FORMAT_VERSION, app: "canvas.me", createdAt: new Date().toISOString() }),
@@ -90,7 +92,13 @@ export async function importWorkfile(file: File): Promise<Design> {
     pages: parsed.data.pages.map((p) => ({
       ...p,
       elements: p.elements.map((e) =>
-        e.type === "image" ? { ...e, assetId: idMap.get(e.assetId) ?? e.assetId } : e,
+        e.type === "image"
+          ? {
+              ...e,
+              assetId: idMap.get(e.assetId) ?? e.assetId,
+              ...(e.eraseSource && { eraseSource: idMap.get(e.eraseSource) ?? e.eraseSource }),
+            }
+          : e,
       ),
     })),
   };

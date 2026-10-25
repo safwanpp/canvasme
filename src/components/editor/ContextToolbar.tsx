@@ -17,8 +17,13 @@ import {
   Baseline,
   Blend,
   Bold,
+  Check,
   Copy,
   Crop,
+  Eraser,
+  ImageDown,
+  Paintbrush,
+  RotateCcw,
   Group as GroupIcon,
   Italic,
   Layers,
@@ -40,8 +45,11 @@ import type { Element } from "@/lib/model";
 import { currentPage, useEditor } from "@/store/editor";
 import { ColorInput, Divider, IconButton, Popover, Slider } from "../ui";
 import { downloadPercent, MODEL_SIZE_MB, modelDownloaded } from "@/lib/bgRemove";
+import { uncrop } from "@/lib/crop";
 import { useView } from "@/store/view";
-import { removeImageBackground } from "./actions";
+import { useState } from "react";
+import { canRasterize, rasterizeElements, removeImageBackground } from "./actions";
+import { finishErase } from "./EraseEditor";
 import { FontPicker } from "./FontPicker";
 
 type AlignTarget = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
@@ -51,6 +59,8 @@ export function ContextToolbar() {
   const selected = useEditor((s) => s.selected);
   const design = useEditor((s) => s.design);
   const maskEditId = useView((s) => s.maskEditId);
+  const cropEditId = useView((s) => s.cropEditId);
+  const eraseEditId = useView((s) => s.eraseEditId);
   const st = useEditor.getState();
   if (!page || !design) return <Bar>{null}</Bar>;
 
@@ -95,6 +105,10 @@ export function ContextToolbar() {
       ? { image: els.find((e) => e.type === "image" && !e.mask), shape: els.find((e) => e.type === "shape") }
       : null;
   const masked = els.length === 1 && first.type === "image" && first.mask ? first : null;
+  // Crop and Erase work on one image without a mask (Adjust does the cropping inside a mask).
+  const plain = els.length === 1 && first.type === "image" && !first.mask && !first.locked ? first : null;
+  const cropping = plain && cropEditId === plain.id ? plain : null;
+  const erasing = els.length === 1 && eraseEditId === first.id;
 
   // Align the selection's bounding box to the page, keeping relative positions.
   const alignToPage = (where: AlignTarget) => {
@@ -257,9 +271,38 @@ export function ContextToolbar() {
         </>
       )}
 
-      {allType("image") && first.type === "image" && (
+      {cropping && (
+        <>
+          <span className="pl-1 text-xs font-medium text-ink-700">Crop</span>
+          <IconButton title="Show the whole image" disabled={!cropping.crop} onClick={() => st.update(ids, uncrop(cropping))}>
+            <RotateCcw size={16} />
+            <span className="text-xs">Reset</span>
+          </IconButton>
+          <IconButton title="Done cropping (Enter)" active onClick={() => useView.getState().set({ cropEditId: null })}>
+            <Check size={16} />
+            <span className="text-xs">Done</span>
+          </IconButton>
+          <Divider />
+        </>
+      )}
+
+      {erasing && <EraseBar />}
+
+      {allType("image") && first.type === "image" && !cropping && !erasing && (
         <>
           {els.length === 1 && <BgRemover elId={first.id} />}
+          {plain && (
+            <>
+              <IconButton title="Crop (double-click)" onClick={() => useView.getState().set({ cropEditId: plain.id })}>
+                <Crop size={16} />
+                <span className="text-xs">Crop</span>
+              </IconButton>
+              <IconButton title="Erase parts of the image" onClick={() => useView.getState().set({ eraseEditId: plain.id })}>
+                <Eraser size={16} />
+                <span className="text-xs">Erase</span>
+              </IconButton>
+            </>
+          )}
           {masked ? (
             <IconButton
               title={maskEditId === masked.id ? "Done adjusting the image" : "Adjust image in mask (double-click)"}
@@ -329,6 +372,7 @@ export function ContextToolbar() {
             </div>
           </div>
         </Popover>
+        {!cropping && !erasing && canRasterize(els) && <RasterizeButton ids={ids} />}
         {clipPair?.image && clipPair.shape && (
           <IconButton title="Clip image to shape" onClick={() => st.clipToShape(clipPair.image!.id, clipPair.shape!.id)}>
             <SquaresIntersect size={16} />
@@ -419,5 +463,66 @@ function BgRemover({ elId }: { elId: string }) {
         </div>
       )}
     </Popover>
+  );
+}
+
+/** Rasterize: render the selection into one image element. */
+function RasterizeButton({ ids }: { ids: string[] }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <IconButton
+      title="Rasterize: turn into one image"
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        void rasterizeElements(ids).finally(() => setBusy(false));
+      }}
+    >
+      {busy ? <Loader2 size={16} className="animate-spin" /> : <ImageDown size={16} />}
+      <span className="text-xs">Rasterize</span>
+    </IconButton>
+  );
+}
+
+/** Erase mode: Erase or Restore brush, its size and softness, and Done. */
+function EraseBar() {
+  const brush = useView((s) => s.eraseBrush);
+  const setBrush = (p: Partial<typeof brush>) => useView.getState().set({ eraseBrush: { ...brush, ...p } });
+  return (
+    <>
+      <span className="pl-1 text-xs font-medium text-ink-700">Erase</span>
+      <IconButton title="Erase brush" active={!brush.restore} onClick={() => setBrush({ restore: false })}>
+        <Eraser size={16} />
+      </IconButton>
+      <IconButton title="Restore brush: paint the original back" active={brush.restore} onClick={() => setBrush({ restore: true })}>
+        <Paintbrush size={16} />
+      </IconButton>
+      <Popover
+        title="Brush size and softness"
+        trigger={
+          <>
+            <span className="rounded-full border-2 border-ink-500" style={{ width: 12, height: 12 }} />
+            <span className="text-xs tabular-nums">{brush.size}</span>
+          </>
+        }
+      >
+        <div className="w-56">
+          <Slider label="Brush size" value={brush.size} min={4} max={300} onChange={(v) => setBrush({ size: v })} />
+          <Slider
+            label="Softness"
+            value={Math.round(brush.softness * 100)}
+            min={0}
+            max={100}
+            format={(v) => `${v}%`}
+            onChange={(v) => setBrush({ softness: v / 100 })}
+          />
+        </div>
+      </Popover>
+      <IconButton title="Done erasing (Enter)" active onClick={() => void finishErase()}>
+        <Check size={16} />
+        <span className="text-xs">Done</span>
+      </IconButton>
+      <Divider />
+    </>
   );
 }

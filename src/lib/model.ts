@@ -84,12 +84,29 @@ export const ImageMask = z.object({
   shapeAbove: z.boolean().default(false),
 });
 
+/**
+ * Crop: the part of the picture that shows, as fractions (0..1) of its full width and
+ * height. Fractions rather than pixels, so the crop survives swapping the bitmap for one
+ * the same shape (background removal, erasing).
+ */
+export const ImageCrop = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  width: z.number().positive().max(1),
+  height: z.number().positive().max(1),
+});
+
 export const ImageElement = z.object({
   ...base,
   type: z.literal("image"),
   assetId: z.string(),
   cornerRadius: z.number().nonnegative().default(0),
   mask: ImageMask.optional(),
+  crop: ImageCrop.optional(),
+  /** Made by Rasterize from other elements. */
+  rasterized: z.boolean().optional(),
+  /** The bitmap before the first erase, which the Restore brush paints back from. */
+  eraseSource: z.string().optional(),
 });
 
 export const Element = z.discriminatedUnion("type", [
@@ -116,6 +133,11 @@ export const AssetMeta = z.object({
   name: z.string(),
   width: z.number(),
   height: z.number(),
+  /**
+   * Made by the editor (Rasterize, Erase) rather than uploaded: kept out of the Uploads
+   * panel, and dropped once no element uses it.
+   */
+  generated: z.boolean().optional(),
 });
 
 export const FONT_MIMES = ["font/ttf", "font/otf", "font/woff", "font/woff2"] as const;
@@ -146,6 +168,7 @@ export type ShapeElement = z.infer<typeof ShapeElement>;
 export type LineElement = z.infer<typeof LineElement>;
 export type PathElement = z.infer<typeof PathElement>;
 export type ImageMask = z.infer<typeof ImageMask>;
+export type ImageCrop = z.infer<typeof ImageCrop>;
 export type ImageElement = z.infer<typeof ImageElement>;
 export type Element = z.infer<typeof Element>;
 export type Page = z.infer<typeof Page>;
@@ -154,6 +177,29 @@ export type FontMeta = z.infer<typeof FontMeta>;
 export type Design = z.infer<typeof Design>;
 
 export const uid = () => nanoid(12);
+
+/** Asset ids the design's elements use, including the originals kept for the Restore brush. */
+export function usedAssets(d: Design) {
+  const used = new Set<string>();
+  for (const p of d.pages) {
+    for (const e of p.elements) {
+      if (e.type !== "image") continue;
+      used.add(e.assetId);
+      if (e.eraseSource) used.add(e.eraseSource);
+    }
+  }
+  return used;
+}
+
+/**
+ * Drop generated assets nothing uses any more (earlier erase versions, deleted
+ * rasterized images). Only safe when no undo history can bring them back.
+ */
+export function pruneAssets(d: Design): Design {
+  const used = usedAssets(d);
+  const keep = Object.entries(d.assets).filter(([id, meta]) => !meta.generated || used.has(id));
+  return keep.length === Object.keys(d.assets).length ? d : { ...d, assets: Object.fromEntries(keep) };
+}
 
 export function newPage(background = "#ffffff"): Page {
   return { id: uid(), background, elements: [] };

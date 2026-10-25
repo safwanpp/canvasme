@@ -1,5 +1,5 @@
 import type Konva from "konva";
-import type { Design, Element, ImageElement, Page, ShapeElement, ShapeKind } from "./model";
+import type { Design, Element, ImageCrop, ImageElement, Page, ShapeElement, ShapeKind } from "./model";
 import { ensureFonts } from "./fonts";
 import { loadAssetImage } from "./images";
 
@@ -56,9 +56,24 @@ export function traceShape(ctx: PathCtx, shape: ShapeElement, w: number, h: numb
   ctx.closePath();
 }
 
+/** A decoded asset, or the canvas an erase is painting on. */
+export type Bitmap = HTMLImageElement | HTMLCanvasElement;
+
+export const bitmapSize = (b: Bitmap) =>
+  b instanceof HTMLImageElement ? { w: b.naturalWidth, h: b.naturalHeight } : { w: b.width, h: b.height };
+
+export const FULL_CROP: ImageCrop = { x: 0, y: 0, width: 1, height: 1 };
+
+/** The crop as a source rectangle in the bitmap's pixels. */
+export function cropPixels(crop: ImageCrop | undefined, b: Bitmap) {
+  const c = crop ?? FULL_CROP;
+  const { w, h } = bitmapSize(b);
+  return { x: c.x * w, y: c.y * h, width: c.width * w, height: c.height * h };
+}
+
 // A masked image is one custom shape rather than a clipped group: a group's client
 // rect would be the whole picture, and the transformer must hug the mask instead.
-function maskedImageAttrs(el: ImageElement, image?: HTMLImageElement | null) {
+function maskedImageAttrs(el: ImageElement, image?: Bitmap | null) {
   const m = el.mask!;
   const r = m.image;
   return {
@@ -80,7 +95,9 @@ function maskedImageAttrs(el: ImageElement, image?: HTMLImageElement | null) {
           roundedRect(ctx, r.width, r.height, el.cornerRadius);
           ctx.clip();
         }
-        ctx.drawImage(image, 0, 0, r.width, r.height);
+        // A crop made before masking still applies to the picture inside the mask.
+        const c = cropPixels(el.crop, image);
+        ctx.drawImage(image, c.x, c.y, c.width, c.height, 0, 0, r.width, r.height);
       }
       ctx.restore();
     },
@@ -113,7 +130,7 @@ export function textAttrs(el: Extract<Element, { type: "text" }>) {
   };
 }
 
-export function elementNodes(el: Element, image?: HTMLImageElement | null): NodeSpec[] {
+export function elementNodes(el: Element, image?: Bitmap | null): NodeSpec[] {
   const w = el.width;
   const h = el.height;
   switch (el.type) {
@@ -122,7 +139,12 @@ export function elementNodes(el: Element, image?: HTMLImageElement | null): Node
     case "image":
       if (el.mask) return [{ kind: "Shape", attrs: maskedImageAttrs(el, image) }];
       if (!image) return [{ kind: "Rect", attrs: { width: w, height: h, fill: "#e5e7eb" } }];
-      return [{ kind: "Image", attrs: { width: w, height: h, image, cornerRadius: el.cornerRadius } }];
+      return [
+        {
+          kind: "Image",
+          attrs: { width: w, height: h, image, cornerRadius: el.cornerRadius, crop: cropPixels(el.crop, image) },
+        },
+      ];
     case "line": {
       const sw = el.strokeWidth;
       return [
@@ -203,16 +225,34 @@ export function groupAttrs(el: Element) {
 export const pageFonts = (page: Page) =>
   page.elements.flatMap((e) => (e.type === "text" ? [e.fontFamily] : []));
 
+type KonvaNS = typeof import("konva").default;
+
+async function loadPageImages(els: Element[]) {
+  const images = new Map<string, HTMLImageElement | null>();
+  await Promise.all(
+    els.map(async (e) => {
+      if (e.type === "image") images.set(e.assetId, await loadAssetImage(e.assetId));
+    }),
+  );
+  return images;
+}
+
+/** An element's Konva group, built imperatively from the same specs the editor renders. */
+function buildElement(Konva: KonvaNS, el: Element, images: Map<string, HTMLImageElement | null>) {
+  const g = new Konva.Group(groupAttrs(el));
+  const img = el.type === "image" ? images.get(el.assetId) : undefined;
+  for (const n of elementNodes(el, img)) {
+    const Ctor = Konva[n.kind] as unknown as new (a: Record<string, unknown>) => InstanceType<typeof Konva.Shape>;
+    g.add(new Ctor(n.attrs));
+  }
+  return g;
+}
+
 /** Render one page off-screen at `pixelRatio` x the design size. */
 export async function renderPageCanvas(design: Design, page: Page, pixelRatio: number) {
   const Konva = (await import("konva")).default;
   await ensureFonts(pageFonts(page));
-  const images = new Map<string, HTMLImageElement | null>();
-  await Promise.all(
-    page.elements.map(async (e) => {
-      if (e.type === "image") images.set(e.assetId, await loadAssetImage(e.assetId));
-    }),
-  );
+  const images = await loadPageImages(page.elements);
 
   const container = document.createElement("div");
   const stage = new Konva.Stage({ container, width: design.width, height: design.height });
@@ -221,18 +261,64 @@ export async function renderPageCanvas(design: Design, page: Page, pixelRatio: n
   layer.add(new Konva.Rect({ width: design.width, height: design.height, fill: page.background }));
   for (const el of page.elements) {
     if (el.hidden) continue;
-    const g = new Konva.Group(groupAttrs(el));
-    const img = el.type === "image" ? images.get(el.assetId) : undefined;
-    for (const n of elementNodes(el, img)) {
-      const Ctor = Konva[n.kind] as unknown as new (a: Record<string, unknown>) => InstanceType<typeof Konva.Shape>;
-      g.add(new Ctor(n.attrs));
-    }
-    layer.add(g);
+    layer.add(buildElement(Konva, el, images));
   }
   layer.draw();
   const canvas = stage.toCanvas({ pixelRatio });
   stage.destroy();
   return canvas;
+}
+
+// Rasterize resolution: at least the 2x of PNG export, more for an image that has more
+// detail than that, but never a bitmap so big that a phone runs out of canvas memory.
+const RASTER_MIN_RATIO = 2;
+const RASTER_MAX_SIDE = 4096;
+const RASTER_MAX_PIXELS = 16_000_000;
+
+/** Pixels per design unit an image element shows at, so rasterizing it loses no detail. */
+function nativeRatio(el: Element, images: Map<string, HTMLImageElement | null>) {
+  const img = el.type === "image" ? images.get(el.assetId) : null;
+  if (el.type !== "image" || !img) return 0;
+  const src = cropPixels(el.crop, img);
+  return el.mask ? src.width / el.mask.image.width : src.width / el.width;
+}
+
+/**
+ * Render elements alone, on a transparent background, for Rasterize. One element is drawn
+ * upright in its own frame, so the result can keep its rotation and opacity: `box` is then
+ * in the element's local coordinates. Several are drawn as they sit on the page (`box` in
+ * page coordinates), each with its own opacity.
+ */
+export async function renderElementsCanvas(els: Element[]) {
+  const Konva = (await import("konva")).default;
+  await ensureFonts(els.flatMap((e) => (e.type === "text" ? [e.fontFamily] : [])));
+  const images = await loadPageImages(els);
+
+  const container = document.createElement("div");
+  const stage = new Konva.Stage({ container, width: 1, height: 1 });
+  const layer = new Konva.Layer();
+  stage.add(layer);
+  const root = new Konva.Group();
+  layer.add(root);
+  const single = els.length === 1;
+  for (const el of els) {
+    const g = buildElement(Konva, el, images);
+    if (single) g.setAttrs({ x: 0, y: 0, rotation: 0, opacity: 1, visible: true });
+    root.add(g);
+  }
+  // Strokes, arrow heads and antialiasing reach just past the boxes; keep them.
+  const r = root.getClientRect({ skipShadow: true });
+  const box = { x: r.x - 1, y: r.y - 1, width: r.width + 2, height: r.height + 2 };
+  const want = Math.max(RASTER_MIN_RATIO, ...els.map((e) => nativeRatio(e, images)));
+  const pixelRatio = Math.min(
+    want,
+    RASTER_MAX_SIDE / box.width,
+    RASTER_MAX_SIDE / box.height,
+    Math.sqrt(RASTER_MAX_PIXELS / (box.width * box.height)),
+  );
+  const canvas = root.toCanvas({ ...box, pixelRatio });
+  stage.destroy();
+  return { canvas, box };
 }
 
 export const canvasToBlob = (c: HTMLCanvasElement, type = "image/png", quality?: number) =>

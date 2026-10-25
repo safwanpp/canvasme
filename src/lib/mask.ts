@@ -2,7 +2,7 @@ import type { ImageElement, ShapeElement } from "./model";
 
 // Elements rotate about their top-left corner (x, y), so converting between page and
 // element-local coordinates is a rotation about that point.
-const rotate = (x: number, y: number, deg: number) => {
+export const rotate = (x: number, y: number, deg: number) => {
   const a = (deg * Math.PI) / 180;
   return { x: x * Math.cos(a) - y * Math.sin(a), y: x * Math.sin(a) + y * Math.cos(a) };
 };

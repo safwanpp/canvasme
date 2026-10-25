@@ -301,7 +301,7 @@ function AssetThumb({ id, name }: { id: string; name: string }) {
 function UploadsTab({ onNotice }: { onNotice: (msg: string) => void }) {
   const assets = useEditor((s) => s.design?.assets);
   const input = useRef<HTMLInputElement>(null);
-  const entries = Object.entries(assets ?? {});
+  const entries = Object.entries(assets ?? {}).filter(([, meta]) => !meta.generated);
   return (
     <>
       <Heading>Uploads</Heading>
@@ -343,6 +343,7 @@ function label(el: Element) {
   if (el.type === "shape") return el.shape[0].toUpperCase() + el.shape.slice(1);
   if (el.type === "line") return el.arrowEnd ? "Arrow" : "Line";
   if (el.type === "path") return "Drawing";
+  if (el.rasterized) return "Rasterized";
   return el.mask ? "Masked image" : "Image";
 }
 

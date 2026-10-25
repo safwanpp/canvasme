@@ -5,7 +5,8 @@ import { primeAssetImage } from "@/lib/images";
 import { type Element, type IMAGE_MIMES, isAllowedImage, type ShapeKind, uid } from "@/lib/model";
 import { removeBackground } from "@/lib/bgRemove";
 import { loadAsset, saveAsset } from "@/lib/storage";
-import { lineBetween } from "@/lib/render";
+import { rotate } from "@/lib/mask";
+import { canvasToBlob, lineBetween, renderElementsCanvas } from "@/lib/render";
 import { normalize, useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
 
@@ -342,4 +343,70 @@ export async function removeImageBackground(elId: string) {
   } catch (err) {
     setJob({ error: err instanceof Error ? err.message : "Background removal failed" });
   }
+}
+
+/** Whether Rasterize would change anything: a plain, uncropped picture is already a bitmap. */
+export function canRasterize(els: Element[]) {
+  const shown = els.filter((e) => !e.hidden);
+  if (!shown.length || els.some((e) => e.locked)) return false;
+  const e = shown[0];
+  return shown.length > 1 || e.type !== "image" || !!e.mask || !!e.crop || e.cornerRadius > 0;
+}
+
+/**
+ * Turn elements into one bitmap image, drawn by the same code as export, in their place
+ * in the layer order. One undo step brings the originals back.
+ */
+export async function rasterizeElements(ids: string[]) {
+  const st = useEditor.getState();
+  const page = st.design?.pages.find((p) => p.id === st.pageId);
+  if (!page) return;
+  // Hidden elements are left where they are; they would render as nothing.
+  const els = page.elements.filter((e) => ids.includes(e.id) && !e.hidden);
+  if (!canRasterize(els)) return;
+  const { canvas, box } = await renderElementsCanvas(els);
+  const blob = await canvasToBlob(canvas);
+  const assetId = uid();
+  const img = await primeAssetImage(assetId, blob);
+  await saveAsset(assetId, blob);
+
+  // One element keeps its rotation and opacity (its box is in its own frame); several
+  // become one upright image with their opacities drawn in.
+  const one = els.length === 1 ? els[0] : null;
+  const at = one ? rotate(box.x, box.y, one.rotation) : box;
+  const el: Element = {
+    ...base(),
+    type: "image",
+    assetId,
+    cornerRadius: 0,
+    rasterized: true,
+    x: (one?.x ?? 0) + at.x,
+    y: (one?.y ?? 0) + at.y,
+    width: box.width,
+    height: box.height,
+    rotation: one?.rotation ?? 0,
+    opacity: one?.opacity ?? 1,
+    name: one?.name,
+  };
+  const gone = new Set(els.map((e) => e.id));
+  let placed = false;
+  st.mutate((d) => {
+    const pg = d.pages.find((p) => p.id === page.id);
+    // Something changed while rendering (undo, delete): skip rather than lose edits.
+    if (!pg || [...gone].some((id) => !pg.elements.some((e) => e.id === id))) return;
+    d.assets[assetId] = {
+      mime: "image/png",
+      name: `${one?.name ?? "Rasterized"}.png`,
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      generated: true,
+    };
+    // The bitmap takes the place of the front-most original.
+    const top = pg.elements.findLastIndex((e) => gone.has(e.id));
+    const below = pg.elements.slice(0, top + 1).filter((e) => gone.has(e.id)).length;
+    pg.elements = pg.elements.filter((e) => !gone.has(e.id));
+    pg.elements.splice(top + 1 - below, 0, el);
+    placed = true;
+  });
+  if (placed) useEditor.setState({ selected: [el.id] });
 }

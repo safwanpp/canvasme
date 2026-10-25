@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Element } from "@/lib/model";
+import { type Element, pruneAssets } from "@/lib/model";
 import { renderThumbnail } from "@/lib/render";
-import { loadDesign, requestPersistence, saveDesign, saveThumb } from "@/lib/storage";
+import { collectOrphanAssets, loadDesign, requestPersistence, saveDesign, saveThumb } from "@/lib/storage";
 import { currentPage, useEditor } from "@/store/editor";
 import { type Tool, useView } from "@/store/view";
 import { addImageFiles, insertText } from "./actions";
+import { finishErase } from "./EraseEditor";
 import { BottomBar } from "./BottomBar";
 import Canvas from "./Canvas";
 import { ContextToolbar } from "./ContextToolbar";
@@ -101,6 +102,10 @@ function useShortcuts(onNotice: (m: string) => void) {
         if (!sel.length) return;
         e.preventDefault();
         st.duplicate(sel);
+      } else if (mod && key === "z" && view.eraseEditId) {
+        // Strokes are not in the history until Done; undo drops this session's strokes.
+        e.preventDefault();
+        void finishErase({ discard: true });
       } else if (mod && key === "z") {
         e.preventDefault();
         if (e.shiftKey) st.redo();
@@ -140,6 +145,10 @@ function useShortcuts(onNotice: (m: string) => void) {
         if (!sel.length) return;
         e.preventDefault();
         st.remove(sel);
+      } else if ((key === "escape" || key === "enter") && (view.cropEditId || view.eraseEditId)) {
+        e.preventDefault();
+        if (view.eraseEditId) void finishErase();
+        else view.set({ cropEditId: null });
       } else if (key === "escape") {
         if (view.maskEditId) view.set({ maskEditId: null });
         else if (view.tool !== "select") setTool("select");
@@ -205,9 +214,13 @@ export default function Editor({ id }: { id: string }) {
     let alive = true;
     setState("loading");
     requestPersistence();
-    loadDesign(id).then((d) => {
+    loadDesign(id).then((loaded) => {
       if (!alive) return;
-      if (!d) return setState("missing");
+      if (!loaded) return setState("missing");
+      // A fresh load has no undo history, so bitmaps left behind by earlier erases, deleted
+      // rasterized images and undone edits can go now.
+      const d = pruneAssets(loaded);
+      void (d !== loaded ? saveDesign(d) : Promise.resolve()).then(collectOrphanAssets).catch(() => {});
       useEditor.getState().load(d);
       useView.getState().set({ saveStatus: "saved" });
       setState("ready");

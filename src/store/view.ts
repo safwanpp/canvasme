@@ -13,6 +13,8 @@ type SaveStatus = "saved" | "saving" | "error";
 export type Tool = "select" | "draw" | "eraser" | "shape" | "line" | "sticky" | "text";
 export type PenKind = "pen" | "marker" | "highlighter";
 export type Pen = { kind: PenKind; color: string; size: number };
+/** Erase-mode brush. `size` is in screen pixels, `softness` 0..1 feathers the edge. */
+export type EraseBrush = { size: number; softness: number; restore: boolean };
 /** Background removal in progress (or failed) for one image element. */
 export type BgJob = { elId: string; progress: BgProgress | null; error?: string };
 
@@ -30,6 +32,11 @@ type ViewState = {
   bgJob: BgJob | null;
   /** Masked image whose picture is being moved or scaled inside its mask (double-click). */
   maskEditId: string | null;
+  /** Image being cropped (double-click, or Crop in the toolbar). */
+  cropEditId: string | null;
+  /** Image being erased (Erase in the toolbar). */
+  eraseEditId: string | null;
+  eraseBrush: EraseBrush;
   set: (p: Partial<Omit<ViewState, "set" | "zoomAt" | "zoomTo" | "requestFit">>) => void;
   /** Zoom keeping the given screen point fixed. */
   zoomAt: (scale: number, px: number, py: number) => void;
@@ -53,6 +60,9 @@ export const useView = create<ViewState>((set, get) => ({
   shapeKind: "rect",
   bgJob: null,
   maskEditId: null,
+  cropEditId: null,
+  eraseEditId: null,
+  eraseBrush: { size: 40, softness: 0.3, restore: false },
   set: (p) => set(p),
   zoomAt: (next, px, py) => {
     const { scale, x, y } = get();

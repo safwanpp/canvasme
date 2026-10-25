@@ -23,7 +23,9 @@ import {
   placeShape,
   placeSticky,
 } from "./actions";
+import { CropEditor } from "./CropEditor";
 import { ElementNode } from "./ElementNode";
+import { EraseEditor, finishErase } from "./EraseEditor";
 import { MaskEditor } from "./MaskEditor";
 import { TextEditor } from "./TextEditor";
 
@@ -54,7 +56,8 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const page = useEditor(currentPage);
   const selected = useEditor((s) => s.selected);
   const editingTextId = useEditor((s) => s.editingTextId);
-  const { scale, x, y, container, fitTick, spaceDown, tool, pen, shapeKind, bgJob, maskEditId } = useView();
+  const { scale, x, y, container, fitTick, spaceDown, tool, pen, shapeKind, bgJob, maskEditId, cropEditId, eraseEditId } =
+    useView();
 
   const [guides, setGuides] = useState<Guide[]>([]);
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -190,12 +193,27 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     if (maskEditId && (!maskEl || tool !== "select")) useView.getState().set({ maskEditId: null });
   }, [maskEditId, maskEl, tool]);
 
+  // Crop and Erase work the same way: they last while that image alone stays selected.
+  const cropEl = single?.id === cropEditId && single.type === "image" && !single.mask && !single.locked ? single : null;
+  useEffect(() => {
+    if (cropEditId && (!cropEl || tool !== "select")) useView.getState().set({ cropEditId: null });
+  }, [cropEditId, cropEl, tool]);
+  // Erase keeps drawing its canvas until the new bitmap is stored, even once deselected.
+  const eraseAny = eraseEditId ? byId.get(eraseEditId) : undefined;
+  const eraseEl = eraseAny?.type === "image" && !eraseAny.mask ? eraseAny : null;
+  const eraseLive = !!eraseEl && single?.id === eraseEl.id && !eraseEl.locked && tool === "select";
+  useEffect(() => {
+    if (eraseEditId && !eraseLive) void finishErase();
+  }, [eraseEditId, eraseLive]);
+
   useEffect(() => {
     const tr = trRef.current;
     if (!tr) return;
     const attach: (Konva.Node | undefined | null)[] = maskEl
       ? [maskNode.current]
-      : selectedEls.filter((e) => !e.locked && e.id !== editingTextId).map((e) => nodes.current.get(e.id));
+      : cropEl || eraseEl
+        ? []
+        : selectedEls.filter((e) => !e.locked && e.id !== editingTextId).map((e) => nodes.current.get(e.id));
     tr.nodes(attach.filter((n): n is Konva.Node => !!n));
     tr.getLayer()?.batchDraw();
   });
@@ -241,7 +259,10 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
 
   const onDblClick = useCallback((el: Element) => {
     if (el.type === "text" && !el.locked) useEditor.getState().setEditingText(el.id);
-    if (el.type === "image" && el.mask && !el.locked) useView.getState().set({ maskEditId: el.id });
+    // Double-click adjusts the picture inside a mask, or crops an image without one.
+    if (el.type === "image" && !el.locked && !useView.getState().eraseEditId) {
+      useView.getState().set(el.mask ? { maskEditId: el.id } : { cropEditId: el.id });
+    }
   }, []);
 
   // Alt/Option at the start of a drag leaves a copy behind (Figma/Canva behaviour).
@@ -578,7 +599,17 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     <div
       ref={wrapRef}
       className="relative h-full w-full touch-none select-none overflow-hidden bg-ink-100"
-      style={{ cursor: spaceDown ? "grab" : tool === "text" ? "text" : tool === "select" ? "default" : "crosshair" }}
+      style={{
+        cursor: spaceDown
+          ? "grab"
+          : eraseEl
+            ? "none"
+            : tool === "text"
+              ? "text"
+              : tool === "select"
+                ? "default"
+                : "crosshair",
+      }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
     >
@@ -615,7 +646,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                   <ElementNode
                     key={el.id}
                     el={el}
-                    editing={el.id === editingTextId}
+                    editing={el.id === editingTextId || el.id === cropEl?.id || el.id === eraseEl?.id}
                     fontsVersion={fontsVersion}
                     interactive={tool === "select"}
                     register={register}
@@ -635,6 +666,10 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                   nodeRef={(n) => (maskNode.current = n)}
                 />
               )}
+              {cropEl && (
+                <CropEditor el={cropEl} scale={scale} accent={ACCENT} coarse={coarse} toPage={pagePointFromClient} />
+              )}
+              {eraseEl && <EraseEditor el={eraseEl} scale={scale} toPage={pagePointFromClient} />}
               {guides.map((g, i) => (
                 <Line
                   key={i}
