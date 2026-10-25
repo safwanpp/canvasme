@@ -2,14 +2,14 @@
 
 import type Konva from "konva";
 import { memo, useEffect, useState } from "react";
-import { Arrow, Ellipse, Group, Image, Line, Rect, Text } from "react-konva";
+import { Arrow, Ellipse, Group, Image, Line, Rect, Shape, Text } from "react-konva";
 import { getReadyImage, loadAssetImage } from "@/lib/images";
 import type { Element } from "@/lib/model";
 import { elementNodes, groupAttrs } from "@/lib/render";
 
-const NODES = { Arrow, Ellipse, Image, Line, Rect, Text };
+const NODES = { Arrow, Ellipse, Image, Line, Rect, Shape, Text };
 
-function useAssetImage(id: string | undefined) {
+export function useAssetImage(id: string | undefined) {
   const [img, setImg] = useState(() => (id ? getReadyImage(id) : undefined));
   useEffect(() => {
     if (!id) return;

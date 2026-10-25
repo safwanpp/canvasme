@@ -1,4 +1,5 @@
-import type { Design, Element, Page, ShapeKind } from "./model";
+import type Konva from "konva";
+import type { Design, Element, ImageElement, Page, ShapeElement, ShapeKind } from "./model";
 import { ensureFonts } from "./fonts";
 import { loadAssetImage } from "./images";
 
@@ -6,7 +7,7 @@ import { loadAssetImage } from "./images";
 // coordinates (0..width, 0..height). The editor renders it with react-konva and
 // exports build it imperatively, so both always draw the same thing.
 export type NodeSpec = {
-  kind: "Rect" | "Ellipse" | "Line" | "Arrow" | "Text" | "Image";
+  kind: "Rect" | "Ellipse" | "Line" | "Arrow" | "Text" | "Image" | "Shape";
   attrs: Record<string, unknown>;
 };
 
@@ -27,6 +28,68 @@ export function polygonPoints(kind: ShapeKind, w: number, h: number): number[] {
     pts.push(w * (0.5 + r * Math.cos(a)), h * (0.55 + r * 1.05 * Math.sin(a)));
   }
   return pts;
+}
+
+type PathCtx = Pick<CanvasRenderingContext2D, "beginPath" | "moveTo" | "lineTo" | "arcTo" | "ellipse" | "closePath">;
+
+function roundedRect(ctx: PathCtx, w: number, h: number, radius: number) {
+  const r = Math.max(0, Math.min(radius, w / 2, h / 2));
+  ctx.moveTo(r, 0);
+  ctx.arcTo(w, 0, w, h, r);
+  ctx.arcTo(w, h, 0, h, r);
+  ctx.arcTo(0, h, 0, 0, r);
+  ctx.arcTo(0, 0, w, 0, r);
+  ctx.closePath();
+}
+
+/** Start a path tracing a shape's outline in a w x h box, the same outline its node draws. */
+export function traceShape(ctx: PathCtx, shape: ShapeElement, w: number, h: number) {
+  ctx.beginPath();
+  if (shape.shape === "rect") return roundedRect(ctx, w, h, shape.cornerRadius);
+  if (shape.shape === "ellipse") {
+    ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    return ctx.closePath();
+  }
+  const pts = polygonPoints(shape.shape, w, h);
+  ctx.moveTo(pts[0], pts[1]);
+  for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
+  ctx.closePath();
+}
+
+// A masked image is one custom shape rather than a clipped group: a group's client
+// rect would be the whole picture, and the transformer must hug the mask instead.
+function maskedImageAttrs(el: ImageElement, image?: HTMLImageElement | null) {
+  const m = el.mask!;
+  const r = m.image;
+  return {
+    width: el.width,
+    height: el.height,
+    sceneFunc: (kctx: Konva.Context) => {
+      const ctx = kctx._context;
+      ctx.save();
+      traceShape(ctx, m.shape, el.width, el.height);
+      ctx.clip();
+      if (!image) {
+        ctx.fillStyle = "#e5e7eb";
+        ctx.fill();
+      } else {
+        ctx.translate(r.x, r.y);
+        ctx.rotate((r.rotation * Math.PI) / 180);
+        if (el.cornerRadius > 0) {
+          ctx.beginPath();
+          roundedRect(ctx, r.width, r.height, el.cornerRadius);
+          ctx.clip();
+        }
+        ctx.drawImage(image, 0, 0, r.width, r.height);
+      }
+      ctx.restore();
+    },
+    // Clicks land only inside the mask's outline.
+    hitFunc: (kctx: Konva.Context, shape: Konva.Shape) => {
+      traceShape(kctx, m.shape, el.width, el.height);
+      kctx.fillStrokeShape(shape);
+    },
+  };
 }
 
 export function fontStyle(bold: boolean, italic: boolean) {
@@ -57,6 +120,7 @@ export function elementNodes(el: Element, image?: HTMLImageElement | null): Node
     case "text":
       return [{ kind: "Text", attrs: textAttrs(el) }];
     case "image":
+      if (el.mask) return [{ kind: "Shape", attrs: maskedImageAttrs(el, image) }];
       if (!image) return [{ kind: "Rect", attrs: { width: w, height: h, fill: "#e5e7eb" } }];
       return [{ kind: "Image", attrs: { width: w, height: h, image, cornerRadius: el.cornerRadius } }];
     case "line": {

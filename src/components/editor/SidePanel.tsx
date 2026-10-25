@@ -343,7 +343,7 @@ function label(el: Element) {
   if (el.type === "shape") return el.shape[0].toUpperCase() + el.shape.slice(1);
   if (el.type === "line") return el.arrowEnd ? "Arrow" : "Line";
   if (el.type === "path") return "Drawing";
-  return "Image";
+  return el.mask ? "Masked image" : "Image";
 }
 
 function LayersTab() {

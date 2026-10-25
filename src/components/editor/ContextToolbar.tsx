@@ -18,6 +18,7 @@ import {
   Blend,
   Bold,
   Copy,
+  Crop,
   Group as GroupIcon,
   Italic,
   Layers,
@@ -25,6 +26,8 @@ import {
   Minus,
   MoveRight,
   Plus,
+  SquaresIntersect,
+  SquaresSubtract,
   Trash2,
   Underline,
   Ungroup,
@@ -47,6 +50,7 @@ export function ContextToolbar() {
   const page = useEditor(currentPage);
   const selected = useEditor((s) => s.selected);
   const design = useEditor((s) => s.design);
+  const maskEditId = useView((s) => s.maskEditId);
   const st = useEditor.getState();
   if (!page || !design) return <Bar>{null}</Bar>;
 
@@ -85,6 +89,12 @@ export function ContextToolbar() {
   const locked = els.every((e) => e.locked);
   const grouped = els.some((e) => e.groupId);
   const sameGroup = grouped && els.every((e) => e.groupId && e.groupId === first.groupId);
+  // An image and a shape can be clipped together; a masked image can be released.
+  const clipPair =
+    els.length === 2 && !els.some((e) => e.locked)
+      ? { image: els.find((e) => e.type === "image" && !e.mask), shape: els.find((e) => e.type === "shape") }
+      : null;
+  const masked = els.length === 1 && first.type === "image" && first.mask ? first : null;
 
   // Align the selection's bounding box to the page, keeping relative positions.
   const alignToPage = (where: AlignTarget) => {
@@ -250,17 +260,29 @@ export function ContextToolbar() {
       {allType("image") && first.type === "image" && (
         <>
           {els.length === 1 && <BgRemover elId={first.id} />}
-          <Popover title="Corner rounding" trigger={<span className="h-4 w-4 rounded-md border-2 border-ink-500" />}>
-            <div className="w-56">
-              <Slider
-                label="Corner rounding"
-                value={first.cornerRadius}
-                min={0}
-                max={Math.min(first.width, first.height) / 2}
-                onChange={(v) => upd({ cornerRadius: v }, "cr")}
-              />
-            </div>
-          </Popover>
+          {masked ? (
+            <IconButton
+              title={maskEditId === masked.id ? "Done adjusting the image" : "Adjust image in mask (double-click)"}
+              active={maskEditId === masked.id}
+              disabled={masked.locked}
+              onClick={() => useView.getState().set({ maskEditId: maskEditId === masked.id ? null : masked.id })}
+            >
+              <Crop size={16} />
+              <span className="text-xs">{maskEditId === masked.id ? "Done" : "Adjust"}</span>
+            </IconButton>
+          ) : (
+            <Popover title="Corner rounding" trigger={<span className="h-4 w-4 rounded-md border-2 border-ink-500" />}>
+              <div className="w-56">
+                <Slider
+                  label="Corner rounding"
+                  value={first.cornerRadius}
+                  min={0}
+                  max={Math.min(first.width, first.height) / 2}
+                  onChange={(v) => upd({ cornerRadius: v }, "cr")}
+                />
+              </div>
+            </Popover>
+          )}
           <Divider />
         </>
       )}
@@ -307,6 +329,18 @@ export function ContextToolbar() {
             </div>
           </div>
         </Popover>
+        {clipPair?.image && clipPair.shape && (
+          <IconButton title="Clip image to shape" onClick={() => st.clipToShape(clipPair.image!.id, clipPair.shape!.id)}>
+            <SquaresIntersect size={16} />
+            <span className="text-xs">Mask</span>
+          </IconButton>
+        )}
+        {masked && (
+          <IconButton title="Release clipping mask" disabled={masked.locked} onClick={() => st.releaseMask(masked.id)}>
+            <SquaresSubtract size={16} />
+            <span className="text-xs">Release</span>
+          </IconButton>
+        )}
         {els.length > 1 && !sameGroup && (
           <IconButton title="Group (Ctrl+G)" onClick={() => st.group(ids)}>
             <GroupIcon size={16} />

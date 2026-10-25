@@ -28,6 +28,8 @@ type ViewState = {
   pen: Pen;
   shapeKind: ShapeKind;
   bgJob: BgJob | null;
+  /** Masked image whose picture is being moved or scaled inside its mask (double-click). */
+  maskEditId: string | null;
   set: (p: Partial<Omit<ViewState, "set" | "zoomAt" | "zoomTo" | "requestFit">>) => void;
   /** Zoom keeping the given screen point fixed. */
   zoomAt: (scale: number, px: number, py: number) => void;
@@ -50,6 +52,7 @@ export const useView = create<ViewState>((set, get) => ({
   pen: { kind: "pen", color: "#111827", size: 6 },
   shapeKind: "rect",
   bgJob: null,
+  maskEditId: null,
   set: (p) => set(p),
   zoomAt: (next, px, py) => {
     const { scale, x, y } = get();

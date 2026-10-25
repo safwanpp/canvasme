@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ensureFonts, FONTS } from "@/lib/fonts";
 import type { Element } from "@/lib/model";
 import { downloadPercent } from "@/lib/bgRemove";
+import { scaleMask } from "@/lib/mask";
 import { lineBetween, lineEnds, pageFonts } from "@/lib/render";
 import { importWorkfile, WORKFILE_EXT } from "@/lib/workfile";
 import { currentPage, normalize, useEditor } from "@/store/editor";
@@ -23,6 +24,7 @@ import {
   placeSticky,
 } from "./actions";
 import { ElementNode } from "./ElementNode";
+import { MaskEditor } from "./MaskEditor";
 import { TextEditor } from "./TextEditor";
 
 const ACCENT = "#3e3aa8";
@@ -46,12 +48,13 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const pageRef = useRef<Konva.Group>(null);
   const trRef = useRef<Konva.Transformer>(null);
   const nodes = useRef(new Map<string, Konva.Group>());
+  const maskNode = useRef<Konva.Image | null>(null);
 
   const design = useEditor((s) => s.design)!;
   const page = useEditor(currentPage);
   const selected = useEditor((s) => s.selected);
   const editingTextId = useEditor((s) => s.editingTextId);
-  const { scale, x, y, container, fitTick, spaceDown, tool, pen, shapeKind, bgJob } = useView();
+  const { scale, x, y, container, fitTick, spaceDown, tool, pen, shapeKind, bgJob, maskEditId } = useView();
 
   const [guides, setGuides] = useState<Guide[]>([]);
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -180,11 +183,20 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   // Attach transformer to selected, editable nodes.
   const selectedEls = selected.map((id) => byId.get(id)).filter((e): e is Element => !!e && !e.hidden);
   const single = selectedEls.length === 1 ? selectedEls[0] : null;
+
+  // Adjusting the picture inside a mask lasts while that masked image alone is selected.
+  const maskEl = single?.id === maskEditId && single.type === "image" && single.mask && !single.locked ? single : null;
+  useEffect(() => {
+    if (maskEditId && (!maskEl || tool !== "select")) useView.getState().set({ maskEditId: null });
+  }, [maskEditId, maskEl, tool]);
+
   useEffect(() => {
     const tr = trRef.current;
     if (!tr) return;
-    const attach = selectedEls.filter((e) => !e.locked && e.id !== editingTextId).map((e) => nodes.current.get(e.id));
-    tr.nodes(attach.filter((n): n is Konva.Group => !!n));
+    const attach: (Konva.Node | undefined | null)[] = maskEl
+      ? [maskNode.current]
+      : selectedEls.filter((e) => !e.locked && e.id !== editingTextId).map((e) => nodes.current.get(e.id));
+    tr.nodes(attach.filter((n): n is Konva.Node => !!n));
     tr.getLayer()?.batchDraw();
   });
 
@@ -229,6 +241,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
 
   const onDblClick = useCallback((el: Element) => {
     if (el.type === "text" && !el.locked) useEditor.getState().setEditingText(el.id);
+    if (el.type === "image" && el.mask && !el.locked) useView.getState().set({ maskEditId: el.id });
   }, []);
 
   // Alt/Option at the start of a drag leaves a copy behind (Figma/Canva behaviour).
@@ -319,6 +332,21 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const onTransformEnd = () => {
     const tr = trRef.current;
     if (!tr) return;
+    const pic = maskNode.current;
+    if (maskEl?.mask && pic && tr.nodes().includes(pic)) {
+      const r = maskEl.mask.image;
+      const image = {
+        x: pic.x(),
+        y: pic.y(),
+        width: Math.max(5, r.width * pic.scaleX()),
+        height: Math.max(5, r.height * pic.scaleY()),
+        rotation: pic.rotation(),
+      };
+      pic.scaleX(1);
+      pic.scaleY(1);
+      useEditor.getState().update([maskEl.id], { mask: { ...maskEl.mask, image } });
+      return;
+    }
     const patches: Record<string, Partial<Element>> = {};
     for (const n of tr.nodes()) {
       const el = byId.get(n.id());
@@ -340,6 +368,10 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
       } else {
         p.width = Math.max(5, el.width * sx);
         p.height = Math.max(5, el.height * sy);
+        // A masked image's picture scales with its mask.
+        if (el.type === "image" && el.mask) {
+          Object.assign(p, { mask: scaleMask(el, p.width / el.width, p.height / el.height) });
+        }
       }
       n.scaleX(1);
       n.scaleY(1);
@@ -595,6 +627,14 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                   />
                 ))}
               </Group>
+              {maskEl && (
+                <MaskEditor
+                  el={maskEl}
+                  scale={scale}
+                  accent={ACCENT}
+                  nodeRef={(n) => (maskNode.current = n)}
+                />
+              )}
               {guides.map((g, i) => (
                 <Line
                   key={i}

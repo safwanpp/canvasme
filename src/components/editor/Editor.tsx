@@ -141,7 +141,8 @@ function useShortcuts(onNotice: (m: string) => void) {
         e.preventDefault();
         st.remove(sel);
       } else if (key === "escape") {
-        if (view.tool !== "select") setTool("select");
+        if (view.maskEditId) view.set({ maskEditId: null });
+        else if (view.tool !== "select") setTool("select");
         else st.select([]);
       } else if (key.startsWith("arrow") && sel.length) {
         e.preventDefault();

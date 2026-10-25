@@ -3,6 +3,7 @@
 import Konva from "konva";
 import { create } from "zustand";
 import { type Design, type Element, type Page, newPage, uid } from "@/lib/model";
+import { maskImage, unmaskImage } from "@/lib/mask";
 import { textAttrs } from "@/lib/render";
 
 const HISTORY_LIMIT = 100;
@@ -57,6 +58,10 @@ export type EditorState = {
   moveTo: (id: string, index: number) => void;
   group: (ids: string[]) => void;
   ungroup: (ids: string[]) => void;
+  /** Clip an image to a shape's outline; the pair becomes one element with the image's id. */
+  clipToShape: (imageId: string, shapeId: string) => void;
+  /** Give back the shape and the image of a masked image. */
+  releaseMask: (id: string) => void;
 
   addPage: () => void;
   duplicatePage: (id: string) => void;
@@ -82,7 +87,10 @@ function cloneWithNewIds(els: Element[], offset: number): Element[] {
       if (!groupMap.has(groupId)) groupMap.set(groupId, uid());
       groupId = groupMap.get(groupId)!;
     }
-    return { ...structuredClone(e), id: uid(), groupId, x: e.x + offset, y: e.y + offset };
+    const copy = { ...structuredClone(e), id: uid(), groupId, x: e.x + offset, y: e.y + offset };
+    // The shape kept inside a mask comes back out on release, so it needs its own id too.
+    if (copy.type === "image" && copy.mask) copy.mask.shape.id = uid();
+    return copy;
   });
 }
 
@@ -268,6 +276,39 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   ungroup: (ids) => get().update(ids, { groupId: null }),
+
+  clipToShape: (imageId, shapeId) => {
+    let done = false;
+    get().mutate((d) => {
+      const page = d.pages.find((p) => p.id === get().pageId);
+      const img = page?.elements.find((e) => e.id === imageId);
+      const shape = page?.elements.find((e) => e.id === shapeId);
+      if (!page || img?.type !== "image" || img.mask || shape?.type !== "shape" || img.locked || shape.locked) return;
+      const iImg = page.elements.indexOf(img);
+      const iShape = page.elements.indexOf(shape);
+      // The masked image takes the shape's place in the layer order.
+      page.elements[iShape] = maskImage(img, shape, iShape > iImg);
+      page.elements.splice(iImg, 1);
+      done = true;
+    });
+    if (done) set({ selected: [imageId] });
+  },
+
+  releaseMask: (id) => {
+    let out: string[] = [];
+    get().mutate((d) => {
+      const page = d.pages.find((p) => p.id === get().pageId);
+      const el = page?.elements.find((e) => e.id === id);
+      if (!page || el?.type !== "image" || el.locked) return;
+      const parts = unmaskImage(el);
+      if (!parts) return;
+      const { shape, image } = parts;
+      if (page.elements.some((e) => e.id === shape.id)) shape.id = uid();
+      page.elements.splice(page.elements.indexOf(el), 1, ...(el.mask!.shapeAbove ? [image, shape] : [shape, image]));
+      out = [shape.id, image.id];
+    });
+    if (out.length) set({ selected: out });
+  },
 
   addPage: () => {
     const page = newPage();

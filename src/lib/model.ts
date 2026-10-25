@@ -65,11 +65,31 @@ export const PathElement = z.object({
   strokeWidth: z.number().positive(),
 });
 
+/**
+ * Clipping mask: the image element's box becomes the shape's box, and the image
+ * shows only inside the shape's outline. `shape` is kept whole so releasing the
+ * mask gives it back; `image` is where the picture sits in the element's local
+ * coordinates.
+ */
+export const ImageMask = z.object({
+  shape: ShapeElement,
+  image: z.object({
+    x: z.number(),
+    y: z.number(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+    rotation: z.number().default(0),
+  }),
+  /** The shape was stacked above the image before clipping. */
+  shapeAbove: z.boolean().default(false),
+});
+
 export const ImageElement = z.object({
   ...base,
   type: z.literal("image"),
   assetId: z.string(),
   cornerRadius: z.number().nonnegative().default(0),
+  mask: ImageMask.optional(),
 });
 
 export const Element = z.discriminatedUnion("type", [
@@ -125,6 +145,7 @@ export type ShapeKind = z.infer<typeof ShapeKind>;
 export type ShapeElement = z.infer<typeof ShapeElement>;
 export type LineElement = z.infer<typeof LineElement>;
 export type PathElement = z.infer<typeof PathElement>;
+export type ImageMask = z.infer<typeof ImageMask>;
 export type ImageElement = z.infer<typeof ImageElement>;
 export type Element = z.infer<typeof Element>;
 export type Page = z.infer<typeof Page>;
