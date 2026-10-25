@@ -4,7 +4,14 @@ type Face = { file: string; weight: string; style: "normal" | "italic" };
  * Fonts in the text panel. `spec` is a Google Fonts css2 family query; `faces` are
  * self-hosted files in /public/fonts/ml (free Malayalam fonts, licenses alongside).
  */
-export type Font = { family: string; script?: "malayalam"; spec?: string; faces?: Face[] };
+export type Font = {
+  family: string;
+  script?: "malayalam";
+  spec?: string;
+  faces?: Face[];
+  /** Set for fonts the user uploaded (see customFonts.ts). */
+  uploadedId?: string;
+};
 
 const f = (file: string, weight: string, style: Face["style"] = "normal"): Face => ({ file, weight, style });
 
@@ -42,12 +49,19 @@ export const FONTS: Font[] = [
   { family: "Rachana", script: "malayalam", faces: [f("rachana-400.woff2", "400"), f("rachana-700.woff2", "700")] },
   { family: "Meera", script: "malayalam", faces: [f("meera.woff2", "400")] },
   { family: "Karumbi", script: "malayalam", faces: [f("karumbi.woff2", "400")] },
+  { family: "Keraleeyam", script: "malayalam", faces: [f("keraleeyam.woff2", "400")] },
+  { family: "Uroob", script: "malayalam", faces: [f("uroob.woff2", "400")] },
+  { family: "Suruma", script: "malayalam", faces: [f("suruma.woff2", "400")] },
+  { family: "Raghu Malayalam Sans", script: "malayalam", faces: [f("raghu-malayalam-sans.woff2", "400")] },
   { family: "Dyuthi", script: "malayalam", faces: [f("dyuthi.woff2", "400")] },
   { family: "Anjali Old Lipi", script: "malayalam", faces: [f("anjali-old-lipi.woff2", "400")] },
   { family: "Lohit Malayalam", script: "malayalam", faces: [f("lohit-malayalam.woff2", "400")] },
   { family: "Malini", script: "malayalam", faces: [f("malini.woff2", "100 900")] },
   { family: "Nupuram", script: "malayalam", faces: [f("nupuram-400.woff2", "400"), f("nupuram-700.woff2", "700"), f("nupuram-400i.woff2", "400", "italic"), f("nupuram-700i.woff2", "700", "italic")] },
   { family: "Nupuram Condensed", script: "malayalam", faces: [f("nupuram-condensed-400.woff2", "400"), f("nupuram-condensed-700.woff2", "700")] },
+  { family: "Nupuram Semi Condensed", script: "malayalam", faces: [f("nupuram-semicondensed.woff2", "400")] },
+  { family: "Nupuram Semi Expanded", script: "malayalam", faces: [f("nupuram-semiexpanded.woff2", "400")] },
+  { family: "Nupuram Color", script: "malayalam", faces: [f("nupuram-color.woff2", "400")] },
   { family: "Nupuram Expanded", script: "malayalam", faces: [f("nupuram-expanded-400.woff2", "400"), f("nupuram-expanded-700.woff2", "700")] },
   { family: "Nupuram Sharp", script: "malayalam", faces: [f("nupuram-sharp.woff2", "400")] },
   { family: "Nupuram SuperSoft", script: "malayalam", faces: [f("nupuram-supersoft.woff2", "400")] },
@@ -81,8 +95,14 @@ const requested = new Map<string, Promise<void>>();
 export function ensureFont(family: string): Promise<void> {
   const existing = requested.get(family);
   if (existing) return existing;
+  if (typeof document === "undefined") return Promise.resolve();
   const font = FONTS.find((f) => f.family === family);
-  if (!font || typeof document === "undefined") return Promise.resolve();
+  if (!font) {
+    // Not built in: maybe a font the user uploaded to this browser.
+    const p = import("./customFonts").then((m) => m.loadUploadedFont(family));
+    requested.set(family, p);
+    return p;
+  }
 
   const p = font.faces ? loadFaces(family, font.faces) : new Promise<void>((resolve) => {
     const link = document.createElement("link");

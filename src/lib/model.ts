@@ -98,6 +98,15 @@ export const AssetMeta = z.object({
   height: z.number(),
 });
 
+export const FONT_MIMES = ["font/ttf", "font/otf", "font/woff", "font/woff2"] as const;
+
+/** An uploaded font as carried in a work file (the font file itself sits next to the design). */
+export const FontMeta = z.object({
+  family: z.string().min(1).max(100),
+  name: z.string().max(255),
+  mime: z.enum(FONT_MIMES),
+});
+
 export const Design = z.object({
   id: z.string(),
   name: z.string(),
@@ -105,6 +114,8 @@ export const Design = z.object({
   height: z.number().int().positive().max(10000),
   pages: z.array(Page).min(1),
   assets: z.record(z.string(), AssetMeta).default({}),
+  /** Uploaded fonts used by the design; only filled in work files, by exportWorkfile. */
+  fonts: z.record(z.string(), FontMeta).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -118,6 +129,7 @@ export type ImageElement = z.infer<typeof ImageElement>;
 export type Element = z.infer<typeof Element>;
 export type Page = z.infer<typeof Page>;
 export type AssetMeta = z.infer<typeof AssetMeta>;
+export type FontMeta = z.infer<typeof FontMeta>;
 export type Design = z.infer<typeof Design>;
 
 export const uid = () => nanoid(12);

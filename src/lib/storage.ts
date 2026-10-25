@@ -1,15 +1,16 @@
 import { createStore, del, get, keys, set, values } from "idb-keyval";
-import type { Design } from "./model";
+import type { Design, FontMeta } from "./model";
 
 // Separate IndexedDB databases: idb-keyval supports one object store per DB.
 type Store = ReturnType<typeof createStore>;
-let stores: { designs: Store; assets: Store; thumbs: Store } | null = null;
+let stores: { designs: Store; assets: Store; thumbs: Store; fonts: Store } | null = null;
 function db() {
   if (!stores) {
     stores = {
       designs: createStore("canvasme-designs", "kv"),
       assets: createStore("canvasme-assets", "kv"),
       thumbs: createStore("canvasme-thumbs", "kv"),
+      fonts: createStore("canvasme-fonts", "kv"),
     };
   }
   return stores;
@@ -38,6 +39,12 @@ export async function deleteDesign(id: string) {
 
 export const saveAsset = (id: string, blob: Blob) => set(id, blob, db().assets);
 export const loadAsset = (id: string) => get<Blob>(id, db().assets);
+
+/** A font the user uploaded; shared by every design in this browser. */
+export type StoredFont = FontMeta & { id: string; blob: Blob; addedAt: number };
+export const saveFont = (f: StoredFont) => set(f.id, f, db().fonts);
+export const listFonts = async () => (await values<StoredFont>(db().fonts)).sort((a, b) => a.addedAt - b.addedAt);
+export const deleteFont = (id: string) => del(id, db().fonts);
 
 export const saveThumb = (id: string, blob: Blob) => set(id, blob, db().thumbs);
 export const loadThumb = (id: string) => get<Blob>(id, db().thumbs);

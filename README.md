@@ -8,8 +8,9 @@ A free design editor that runs entirely in your browser. Make social posts, slid
 
 ## Features
 
-- **Editor**: text (17 Latin fonts plus 41 free Malayalam fonts from Google Fonts, Swathanthra Malayalam Computing, Rachana Institute of Typography and Lohit; bold/italic/underline, alignment, spacing), shapes (rectangle, rounded, circle, triangle, star, hexagon), lines and arrows, a searchable font picker with live previews, image upload (button, drag-and-drop or paste).
+- **Editor**: text (17 Latin fonts plus 48 free Malayalam fonts from Google Fonts, Swathanthra Malayalam Computing, Rachana Institute of Typography and Lohit; bold/italic/underline, alignment, spacing), shapes (rectangle, rounded, circle, triangle, star, hexagon), lines and arrows, a searchable font picker with live previews, image upload (button, drag-and-drop or paste).
 - **Tools**: a Canva-style tool strip with select, freehand draw (pen, marker, highlighter, eraser), drag-to-draw shapes and lines, sticky notes and click-to-place text.
+- **Uploaded fonts**: add your own TTF, OTF, WOFF or WOFF2 fonts from the font picker. They stay in this browser, work in every design, and travel inside `.canvasme` work files.
 - **Background remover**: cut the background out of an image on your device (ormbg model via transformers.js, WebGPU with a CPU fallback). The model downloads once on first use; images never leave the browser.
 - **Editing**: select, marquee and shift-select, move, resize, rotate, snap guides to page and other elements, double-click text editing, group/ungroup, lock, hide, layer order, align to page, undo/redo, copy/paste/duplicate.
 - **Pages**: multiple pages per design, page background, zoom and pan.

@@ -1,7 +1,14 @@
 "use client";
 
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Loader2, Search, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  addFontFiles,
+  FONT_ACCEPT,
+  refreshUploadedFonts,
+  removeUploadedFont,
+  useUploadedFonts,
+} from "@/lib/customFonts";
 import { ensureFont, type Font, FONTS } from "@/lib/fonts";
 import { useEditor } from "@/store/editor";
 import { cx, Popover } from "../ui";
@@ -13,12 +20,14 @@ const ML_SAMPLE = "മലയാളം അക്ഷരങ്ങൾ";
 type Filter = "all" | "latin" | "malayalam";
 type Section = { title: string; fonts: Font[] };
 
+const UPLOADED = "Uploaded fonts";
+
 const byFamily = new Map(FONTS.map((f) => [f.family, f]));
 
 function readRecent(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((f) => byFamily.has(f)) : [];
+    return Array.isArray(v) ? v.filter((f) => typeof f === "string") : [];
   } catch {
     return [];
   }
@@ -64,37 +73,73 @@ export function FontPicker({ value, onChange }: { value: string; onChange: (fami
 
 function FontList({ value, onPick }: { value: string; onPick: (family: string) => void }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>(() => (byFamily.get(value)?.script === "malayalam" ? "malayalam" : "all"));
+  const [filter, setFilter] = useState<Filter>(() =>
+    byFamily.get(value)?.script === "malayalam" ? "malayalam" : "all",
+  );
   const [active, setActive] = useState(-1);
   const [recent] = useState(readRecent);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const design = useEditor((s) => s.design);
+  const { fonts: uploadedMeta, loaded } = useUploadedFonts();
+  const [uploading, setUploading] = useState(false);
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!loaded) void refreshUploadedFonts();
+  }, [loaded]);
+
+  const uploaded = useMemo<Font[]>(
+    () => uploadedMeta.map((f) => ({ family: f.family, uploadedId: f.id })),
+    [uploadedMeta],
+  );
+  const all = useMemo(() => [...uploaded, ...FONTS], [uploaded]);
 
   const docFonts = useMemo(() => {
-    const used = new Set(design?.pages.flatMap((p) => p.elements.flatMap((e) => (e.type === "text" ? [e.fontFamily] : []))));
-    return FONTS.filter((f) => used.has(f.family));
-  }, [design]);
+    const used = new Set(
+      design?.pages.flatMap((p) => p.elements.flatMap((e) => (e.type === "text" ? [e.fontFamily] : []))),
+    );
+    return all.filter((f) => used.has(f.family));
+  }, [design, all]);
 
   const sections = useMemo<Section[]>(() => {
+    // Uploaded fonts can be any script, so they show under every filter.
     const inFilter = (f: Font) =>
-      filter === "all" || (filter === "malayalam" ? f.script === "malayalam" : !f.script);
+      !!f.uploadedId || filter === "all" || (filter === "malayalam" ? f.script === "malayalam" : !f.script);
     const q = query.trim().toLowerCase();
     if (q) {
-      const hits = FONTS.filter(
+      const hits = all.filter(
         (f) => inFilter(f) && (f.family.toLowerCase().includes(q) || (f.script && "malayalam മലയാളം".includes(q))),
       );
       return [{ title: hits.length ? "Results" : "", fonts: hits }];
     }
     const out: Section[] = [];
     const doc = docFonts.filter(inFilter);
-    const rec = recent.map((f) => byFamily.get(f)!).filter(inFilter);
+    const lookup = new Map(all.map((f) => [f.family, f]));
+    const rec = recent.flatMap((f) => (lookup.has(f) ? [lookup.get(f)!] : [])).filter(inFilter);
+    if (uploaded.length) out.push({ title: UPLOADED, fonts: uploaded });
     if (doc.length) out.push({ title: "Document fonts", fonts: doc });
     if (rec.length) out.push({ title: "Recently used", fonts: rec });
     if (filter !== "malayalam") out.push({ title: "Latin", fonts: FONTS.filter((f) => !f.script) });
-    if (filter !== "latin") out.push({ title: "Malayalam · മലയാളം", fonts: FONTS.filter((f) => f.script === "malayalam") });
+    if (filter !== "latin")
+      out.push({ title: "Malayalam · മലയാളം", fonts: FONTS.filter((f) => f.script === "malayalam") });
     return out;
-  }, [query, filter, docFonts, recent]);
+  }, [query, filter, docFonts, recent, all, uploaded]);
+
+  const onFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setUploading(true);
+    setUploadNote(null);
+    try {
+      const { added, warning } = await addFontFiles(files);
+      setUploadNote(warning ?? (added.length ? `Added ${added.join(", ")}` : null));
+      // One font uploaded: use it right away, like picking it from the list.
+      if (added.length === 1 && !warning) onPick(added[0]);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const flat = sections.flatMap((s) => s.fonts);
 
@@ -163,6 +208,29 @@ function FontList({ value, onPick }: { value: string; onPick: (family: string) =
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        className="mt-2 flex items-center justify-center gap-2 rounded-[var(--radius-input)] border border-dashed border-ink-300 px-3 py-2 text-sm font-medium text-ink-700 hover:border-accent-400 hover:bg-accent-50 hover:text-accent-600 disabled:opacity-60"
+      >
+        {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+        {uploading ? "Adding font…" : "Upload a font"}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={FONT_ACCEPT}
+        multiple
+        hidden
+        onChange={(e) => {
+          void onFiles([...(e.target.files ?? [])]);
+          e.target.value = "";
+        }}
+      />
+      <p className="mt-1 text-[11px] leading-snug text-ink-400">
+        {uploadNote ?? "TTF, OTF, WOFF or WOFF2. Stays in this browser. Only upload fonts you're licensed to use."}
+      </p>
       <div ref={listRef} role="listbox" aria-label="Fonts" className="-mx-1 mt-2 min-h-0 flex-1 overflow-y-auto px-1">
         {!flat.length && <p className="mt-8 text-center text-sm text-ink-400">No fonts match “{query}”</p>}
         {sections.map((s) => (
@@ -183,6 +251,7 @@ function FontList({ value, onPick }: { value: string; onPick: (family: string) =
                   active={i === active}
                   root={listRef}
                   onPick={onPick}
+                  removable={s.title === UPLOADED}
                 />
               );
             })}
@@ -200,6 +269,7 @@ function FontRow({
   active,
   root,
   onPick,
+  removable,
 }: {
   font: Font;
   index: number;
@@ -207,9 +277,12 @@ function FontRow({
   active: boolean;
   root: React.RefObject<HTMLDivElement | null>;
   onPick: (family: string) => void;
+  /** Show the remove button (only in the Uploaded fonts section). */
+  removable?: boolean;
 }) {
-  const ref = useRef<HTMLButtonElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   // Load each font only once its row scrolls into view, so opening the list stays light.
   useEffect(() => {
@@ -233,31 +306,51 @@ function FontRow({
 
   const face = ready ? `"${font.family}", system-ui` : "system-ui";
   return (
-    <button
+    <div
       ref={ref}
-      role="option"
-      aria-selected={selected}
       data-index={index}
-      onClick={() => onPick(font.family)}
-      className={cx(
-        "flex w-full items-center gap-2 rounded-[var(--radius-input)] px-2 py-1.5 text-left hover:bg-ink-100",
-        active && "bg-ink-100",
-      )}
+      className={cx("group flex items-center rounded-[var(--radius-input)] hover:bg-ink-100", active && "bg-ink-100")}
     >
-      <span className="min-w-0 flex-1">
-        <span
-          className={cx("block truncate text-[17px] leading-snug text-ink-900 transition-opacity", !ready && "opacity-50")}
-          style={{ fontFamily: face }}
-        >
-          {font.family}
-        </span>
-        {font.script === "malayalam" && (
-          <span className="block truncate text-sm leading-snug text-ink-500" style={{ fontFamily: face }}>
-            {ML_SAMPLE}
+      <button
+        role="option"
+        aria-selected={selected}
+        onClick={() => onPick(font.family)}
+        className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left"
+      >
+        <span className="min-w-0 flex-1">
+          <span
+            className={cx(
+              "block truncate text-[17px] leading-snug text-ink-900 transition-opacity",
+              !ready && "opacity-50",
+            )}
+            style={{ fontFamily: face }}
+          >
+            {font.family}
           </span>
-        )}
-      </span>
-      {selected && <Check size={16} className="shrink-0 text-accent-500" />}
-    </button>
+          {font.script === "malayalam" && (
+            <span className="block truncate text-sm leading-snug text-ink-500" style={{ fontFamily: face }}>
+              {ML_SAMPLE}
+            </span>
+          )}
+        </span>
+        {selected && <Check size={16} className="shrink-0 text-accent-500" />}
+      </button>
+      {removable && font.uploadedId && (
+        <button
+          type="button"
+          title={confirming ? "Click again to remove this font" : "Remove uploaded font"}
+          aria-label={`Remove ${font.family}`}
+          onClick={() => (confirming ? void removeUploadedFont(font.uploadedId!) : setConfirming(true))}
+          onMouseLeave={() => setConfirming(false)}
+          className={cx(
+            "mr-1 flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs text-ink-400 hover:bg-ink-200 hover:text-ink-700 md:opacity-0 md:group-hover:opacity-100",
+            confirming && "bg-[#B23A30] text-white opacity-100 hover:bg-[#B23A30] hover:text-white md:opacity-100",
+          )}
+        >
+          <Trash2 size={14} />
+          {confirming && "Remove"}
+        </button>
+      )}
+    </div>
   );
 }

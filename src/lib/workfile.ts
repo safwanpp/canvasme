@@ -1,6 +1,8 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { z } from "zod";
-import { Design, FORMAT_VERSION, uid } from "./model";
+import { importFonts, getUploadedFont } from "./customFonts";
+import { FONTS } from "./fonts";
+import { Design, FORMAT_VERSION, type FontMeta, uid } from "./model";
 import { loadAsset, saveAsset, saveDesign, saveThumb } from "./storage";
 import { renderThumbnail } from "./render";
 
@@ -21,8 +23,18 @@ export async function exportWorkfile(design: Design): Promise<Blob> {
     "manifest.json": strToU8(
       JSON.stringify({ format: "canvasme", version: FORMAT_VERSION, app: "canvas.me", createdAt: new Date().toISOString() }),
     ),
-    "design.json": strToU8(JSON.stringify(design)),
   };
+  // Carry uploaded fonts the design uses, so it looks the same when opened in another browser.
+  const fonts: Record<string, FontMeta> = {};
+  const used = new Set(design.pages.flatMap((p) => p.elements.flatMap((e) => (e.type === "text" ? [e.fontFamily] : []))));
+  for (const family of used) {
+    if (FONTS.some((f) => f.family === family)) continue;
+    const font = await getUploadedFont(family);
+    if (!font) continue;
+    fonts[font.id] = { family: font.family, name: font.name, mime: font.mime };
+    files[`fonts/${font.id}.${extFor(font.mime)}`] = new Uint8Array(await font.blob.arrayBuffer());
+  }
+  files["design.json"] = strToU8(JSON.stringify({ ...design, fonts }));
   for (const [id, meta] of Object.entries(design.assets)) {
     const blob = await loadAsset(id);
     if (blob) files[`assets/${id}.${extFor(meta.mime)}`] = new Uint8Array(await blob.arrayBuffer());
@@ -83,6 +95,12 @@ export async function importWorkfile(file: File): Promise<Design> {
     })),
   };
 
+  await importFonts(
+    Object.entries(parsed.data.fonts ?? {}).flatMap(([id, meta]) => {
+      const data = files[`fonts/${id}.${extFor(meta.mime)}`];
+      return data ? [{ ...meta, blob: new Blob([data as BlobPart], { type: meta.mime }) }] : [];
+    }),
+  );
   for (const [oldId, meta] of Object.entries(parsed.data.assets)) {
     const data = files[`assets/${oldId}.${extFor(meta.mime)}`];
     if (data) await saveAsset(idMap.get(oldId)!, new Blob([data as BlobPart], { type: meta.mime }));
