@@ -54,6 +54,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Smooth anchor scrolling on the marketing pages only (they wrap everything in .grain). */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(body > .grain) {
+    scroll-behavior: smooth;
+  }
+}
+
 ::selection {
   background: var(--color-accent-200);
   color: var(--color-ink-900);
@@ -160,9 +167,17 @@ input[type="number"] {
 .anim-pinch-r { animation: pinch-r 3.6s var(--ease-spring) infinite; }
 .anim-pinch-zoom { animation: pinch-zoom 3.6s var(--ease-spring) infinite; }
 
+/* Background remover tile: the scene behind the subject wipes off to the checkerboard and back. */
+@keyframes bg-wipe { 0%, 20% { clip-path: inset(0 0 0 0); } 50%, 75% { clip-path: inset(0 0 0 100%); } 100% { clip-path: inset(0 0 0 0); } }
+.anim-bg-wipe { animation: bg-wipe 5s var(--ease-spring) infinite; }
+
+/* Draw tile: a pen stroke draws itself in. The path uses pathLength="1". */
+@keyframes draw { 0% { stroke-dashoffset: 1; } 45%, 80% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 1; } }
+.anim-draw { stroke-dasharray: 1; animation: draw 4.5s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .anim-specimen, .anim-float-a, .anim-float-b, .anim-float-c, .anim-round, .anim-marquee,
-  .anim-pinch-l, .anim-pinch-r, .anim-pinch-zoom {
+  .anim-pinch-l, .anim-pinch-r, .anim-pinch-zoom, .anim-bg-wipe, .anim-draw {
     animation: none;
   }
   .reveal { transition: none; }

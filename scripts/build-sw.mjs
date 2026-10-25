@@ -5,7 +5,19 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
 const OUT = "out";
-const SKIP = new Set(["sw.js", "_headers", "404.html", "404.txt", "opengraph-image", "twitter-image"]);
+// Crawler files (robots, sitemap, llms) aren't needed offline.
+const SKIP = new Set([
+  "sw.js",
+  "_headers",
+  "404.html",
+  "404.txt",
+  "opengraph-image",
+  "twitter-image",
+  "robots.txt",
+  "sitemap.xml",
+  "llms.txt",
+  "llms-full.txt",
+]);
 
 async function walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true });

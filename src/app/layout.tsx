@@ -1,24 +1,29 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { PwaRegister } from "@/components/Pwa";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"], weight: ["400", "500"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://canvasme.setitup.in"),
-  title: "canvas.me: free design editor in your browser",
-  description:
-    "Design social posts, presentations and posters in your browser. No sign-up, no account. Your designs stay on your device.",
+  metadataBase: new URL(SITE.url),
+  title: { default: "canvas.me: free design editor in your browser", template: "%s · canvas.me" },
+  description: SITE.description,
+  applicationName: SITE.name,
+  creator: SITE.maker.name,
+  publisher: SITE.maker.name,
   openGraph: {
     type: "website",
     url: "/",
-    siteName: "canvas.me",
+    siteName: SITE.name,
+    locale: "en",
     title: "canvas.me: free design editor in your browser",
     description: "Make posts, slides and posters without an account. Your designs stay on your device.",
   },
-  appleWebApp: { capable: true, title: "canvas.me", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: SITE.name, statusBarStyle: "default" },
+  formatDetection: { telephone: false },
   twitter: {
     card: "summary_large_image",
     title: "canvas.me: free design editor in your browser",

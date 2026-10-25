@@ -192,11 +192,18 @@ export function InstallButton({
       </>
     );
   const classes = `${VARIANTS[variant]} active:scale-[0.98] ${className}`;
+  // The accessible name has to start with the visible text (WCAG 2.5.3, label in name).
+  const name =
+    variant === "icon"
+      ? "Download canvas.me as an app"
+      : mode === "installed-app"
+        ? "Open app"
+        : "Download app: install canvas.me";
 
   if (mode === "prompt") {
     return (
       <IconButton
-        title="Download canvas.me as an app"
+        title={name}
         className={classes}
         onClick={async () => {
           const p = getPrompt();
@@ -215,7 +222,7 @@ export function InstallButton({
 
   const help = HELP[mode];
   return (
-    <Popover title="Download canvas.me as an app" align={align} trigger={label} triggerClassName={classes}>
+    <Popover title={name} align={align} trigger={label} triggerClassName={classes}>
       <div className="w-72 text-left text-sm leading-relaxed text-ink-700">
         <p className="font-semibold text-ink-900">{help.title}</p>
         <ol className={`mt-2 space-y-1 ${help.steps.length > 1 && mode !== "unsupported" ? "list-decimal pl-5" : ""}`}>
