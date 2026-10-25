@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
     "fflate": "^0.8.3",
     "idb-keyval": "^6.3.0",
     "jspdf": "^2.5.2",

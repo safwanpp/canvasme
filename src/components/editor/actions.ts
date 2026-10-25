@@ -3,9 +3,11 @@
 import { DEFAULT_FONT, ensureFont } from "@/lib/fonts";
 import { primeAssetImage } from "@/lib/images";
 import { type Element, type IMAGE_MIMES, isAllowedImage, type ShapeKind, uid } from "@/lib/model";
-import { saveAsset } from "@/lib/storage";
+import { removeBackground } from "@/lib/bgRemove";
+import { loadAsset, saveAsset } from "@/lib/storage";
 import { lineBetween } from "@/lib/render";
 import { normalize, useEditor } from "@/store/editor";
+import { useView } from "@/store/view";
 
 export const ASSET_DRAG_TYPE = "application/x-canvasme-asset";
 
@@ -303,4 +305,41 @@ export async function addImageFiles(files: File[], at?: { x: number; y: number }
   });
   useEditor.setState({ selected: els.map((e) => e.id) });
   return warning;
+}
+
+/**
+ * Remove the background of an image element on this device and swap in the transparent PNG
+ * as a new asset. The original asset stays in the design, so undo brings it back.
+ */
+export async function removeImageBackground(elId: string) {
+  const view = useView.getState();
+  if (view.bgJob && !view.bgJob.error) return;
+  const d = useEditor.getState().design;
+  const el = d?.pages.flatMap((p) => p.elements).find((e) => e.id === elId);
+  if (!d || el?.type !== "image") return;
+  const meta = d.assets[el.assetId];
+  const blob = await loadAsset(el.assetId);
+  if (!meta || !blob) return;
+
+  const setJob = (job: Partial<NonNullable<typeof view.bgJob>>) =>
+    useView.getState().set({ bgJob: { elId, progress: null, ...job } });
+  setJob({});
+  try {
+    const out = await removeBackground(blob, (progress) => setJob({ progress }));
+    const id = uid();
+    const img = await primeAssetImage(id, out);
+    await saveAsset(id, out);
+    useEditor.getState().mutate((dd) => {
+      dd.assets[id] = {
+        mime: "image/png",
+        name: `${meta.name.replace(/\.[^.]+$/, "")} (no background).png`,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      };
+      for (const p of dd.pages) for (const e of p.elements) if (e.id === elId && e.type === "image") e.assetId = id;
+    });
+    useView.getState().set({ bgJob: null });
+  } catch (err) {
+    setJob({ error: err instanceof Error ? err.message : "Background removal failed" });
+  }
 }

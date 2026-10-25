@@ -28,12 +28,17 @@ import {
   Trash2,
   Underline,
   Ungroup,
+  Loader2,
   Unlock,
+  WandSparkles,
 } from "lucide-react";
 import { ensureFont } from "@/lib/fonts";
 import type { Element } from "@/lib/model";
 import { currentPage, useEditor } from "@/store/editor";
 import { ColorInput, Divider, IconButton, Popover, Slider } from "../ui";
+import { MODEL_SIZE_MB, modelDownloaded } from "@/lib/bgRemove";
+import { useView } from "@/store/view";
+import { removeImageBackground } from "./actions";
 import { FontPicker } from "./FontPicker";
 
 type AlignTarget = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
@@ -244,6 +249,7 @@ export function ContextToolbar() {
 
       {allType("image") && first.type === "image" && (
         <>
+          {els.length === 1 && <BgRemover elId={first.id} />}
           <Popover title="Corner rounding" trigger={<span className="h-4 w-4 rounded-md border-2 border-ink-500" />}>
             <div className="w-56">
               <Slider
@@ -337,5 +343,55 @@ function Row({ icon, label, onClick }: { icon: React.ReactNode; label: string; o
       {icon}
       {label}
     </button>
+  );
+}
+
+/** "BG Remover": confirm, then cut the background out on this device with progress in the trigger. */
+function BgRemover({ elId }: { elId: string }) {
+  const job = useView((s) => s.bgJob);
+  const mine = job?.elId === elId ? job : null;
+  const busy = !!job && !job.error;
+  const p = mine?.progress;
+  const status = mine?.error
+    ? "Retry"
+    : !mine
+      ? "BG Remover"
+      : p?.phase === "download"
+        ? `Downloading ${p.total ? Math.round((p.loaded / p.total) * 100) : 0}%`
+        : p?.phase === "processing"
+          ? "Removing…"
+          : "Starting…";
+  const ready = modelDownloaded();
+  return (
+    <Popover
+      title="Remove background"
+      trigger={
+        <>
+          {mine && !mine.error ? <Loader2 size={16} className="animate-spin" /> : <WandSparkles size={16} />}
+          <span className="text-xs tabular-nums">{status}</span>
+        </>
+      }
+    >
+      {(close) => (
+        <div className="w-64 text-sm text-ink-700">
+          <p className="font-semibold text-ink-900">Remove background</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-500">
+            Runs on this device; the image never leaves your browser.
+            {!ready && ` The first time downloads a ${MODEL_SIZE_MB} MB model, which is then kept for next time.`}
+          </p>
+          {mine?.error && <p className="mt-2 text-xs text-[#B23A30]">It didn&apos;t work: {mine.error}</p>}
+          <button
+            disabled={busy}
+            onClick={() => {
+              void removeImageBackground(elId);
+              close();
+            }}
+            className="mt-3 w-full rounded-full bg-accent-500 px-3 py-2 text-sm font-semibold text-white shadow-[var(--shadow-cta)] hover:bg-accent-600 disabled:opacity-50"
+          >
+            {!busy ? "Remove background" : mine ? "Working on it…" : "Busy with another image…"}
+          </button>
+        </div>
+      )}
+    </Popover>
   );
 }

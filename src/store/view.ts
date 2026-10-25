@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { BgProgress } from "@/lib/bgRemove";
 import type { ShapeKind } from "@/lib/model";
 
 export const MIN_ZOOM = 0.05;
@@ -12,6 +13,8 @@ type SaveStatus = "saved" | "saving" | "error";
 export type Tool = "select" | "draw" | "eraser" | "shape" | "line" | "sticky" | "text";
 export type PenKind = "pen" | "marker" | "highlighter";
 export type Pen = { kind: PenKind; color: string; size: number };
+/** Background removal in progress (or failed) for one image element. */
+export type BgJob = { elId: string; progress: BgProgress | null; error?: string };
 
 type ViewState = {
   scale: number;
@@ -24,6 +27,7 @@ type ViewState = {
   tool: Tool;
   pen: Pen;
   shapeKind: ShapeKind;
+  bgJob: BgJob | null;
   set: (p: Partial<Omit<ViewState, "set" | "zoomAt" | "zoomTo" | "requestFit">>) => void;
   /** Zoom keeping the given screen point fixed. */
   zoomAt: (scale: number, px: number, py: number) => void;
@@ -45,6 +49,7 @@ export const useView = create<ViewState>((set, get) => ({
   tool: "select",
   pen: { kind: "pen", color: "#111827", size: 6 },
   shapeKind: "rect",
+  bgJob: null,
   set: (p) => set(p),
   zoomAt: (next, px, py) => {
     const { scale, x, y } = get();
