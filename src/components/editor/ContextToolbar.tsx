@@ -30,15 +30,11 @@ import {
   Ungroup,
   Unlock,
 } from "lucide-react";
-import { FONTS } from "@/lib/fonts";
+import { ensureFont } from "@/lib/fonts";
 import type { Element } from "@/lib/model";
 import { currentPage, useEditor } from "@/store/editor";
 import { ColorInput, Divider, IconButton, Popover, Slider } from "../ui";
-
-const FONT_GROUPS = [
-  ["Latin", FONTS.filter((f) => !f.script)],
-  ["Malayalam · മലയാളം", FONTS.filter((f) => f.script === "malayalam")],
-] as const;
+import { FontPicker } from "./FontPicker";
 
 type AlignTarget = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
 
@@ -109,23 +105,13 @@ export function ContextToolbar() {
     <Bar>
       {allType("text") && first.type === "text" && (
         <>
-          <select
-            aria-label="Font"
+          <FontPicker
             value={first.fontFamily}
-            onChange={(e) => upd({ fontFamily: e.target.value })}
-            className="h-9 w-32 shrink-0 rounded-[10px] md:h-8 md:w-40 border border-ink-200 bg-surface px-2 text-sm"
-            style={{ fontFamily: `"${first.fontFamily}"` }}
-          >
-            {FONT_GROUPS.map(([label, fonts]) => (
-              <optgroup key={label} label={label}>
-                {fonts.map((f) => (
-                  <option key={f.family} value={f.family} style={{ fontFamily: `"${f.family}"` }}>
-                    {f.family}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+            onChange={(family) => {
+              void ensureFont(family);
+              upd({ fontFamily: family });
+            }}
+          />
           <div className="flex shrink-0 items-center rounded-md border border-ink-200">
             <IconButton title="Decrease font size" onClick={() => bumpFont(-1)}>
               <Minus size={14} />
@@ -240,6 +226,18 @@ export function ContextToolbar() {
           <IconButton title="Arrow end" active={first.arrowEnd} onClick={() => upd({ arrowEnd: !first.arrowEnd })}>
             <MoveRight size={16} />
           </IconButton>
+          <Divider />
+        </>
+      )}
+
+      {allType("path") && first.type === "path" && (
+        <>
+          <ColorInput title="Drawing color" value={first.stroke} onChange={(v) => upd({ stroke: v }, "stroke")} />
+          <Popover title="Thickness" trigger={<Minus size={16} />}>
+            <div className="w-56">
+              <Slider label="Thickness" value={first.strokeWidth} min={1} max={100} onChange={(v) => upd({ strokeWidth: v }, "sw")} />
+            </div>
+          </Popover>
           <Divider />
         </>
       )}

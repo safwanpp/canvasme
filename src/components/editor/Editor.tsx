@@ -6,12 +6,13 @@ import type { Element } from "@/lib/model";
 import { renderThumbnail } from "@/lib/render";
 import { loadDesign, requestPersistence, saveDesign, saveThumb } from "@/lib/storage";
 import { currentPage, useEditor } from "@/store/editor";
-import { useView } from "@/store/view";
+import { type Tool, useView } from "@/store/view";
 import { addImageFiles, insertText } from "./actions";
 import { BottomBar } from "./BottomBar";
 import Canvas from "./Canvas";
 import { ContextToolbar } from "./ContextToolbar";
 import { SidePanel } from "./SidePanel";
+import { setTool } from "./ToolStrip";
 import { TopBar } from "./TopBar";
 
 const SAVE_DELAY_MS = 500;
@@ -72,6 +73,8 @@ function useAutosave() {
     };
   }, []);
 }
+
+const TOOL_KEYS: Record<string, Tool> = { v: "select", p: "draw", e: "eraser", r: "shape", l: "line" };
 
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
@@ -138,7 +141,8 @@ function useShortcuts(onNotice: (m: string) => void) {
         e.preventDefault();
         st.remove(sel);
       } else if (key === "escape") {
-        st.select([]);
+        if (view.tool !== "select") setTool("select");
+        else st.select([]);
       } else if (key.startsWith("arrow") && sel.length) {
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
@@ -148,6 +152,8 @@ function useShortcuts(onNotice: (m: string) => void) {
         st.update(movable, (el) => ({ x: el.x + dx, y: el.y + dy }), { coalesce: "nudge" });
       } else if (key === "t" && !mod && !e.altKey) {
         void insertText("body");
+      } else if (!mod && !e.altKey && TOOL_KEYS[key]) {
+        setTool(TOOL_KEYS[key]);
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {

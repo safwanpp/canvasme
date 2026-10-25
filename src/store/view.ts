@@ -1,11 +1,17 @@
 "use client";
 
 import { create } from "zustand";
+import type { ShapeKind } from "@/lib/model";
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 8;
 
 type SaveStatus = "saved" | "saving" | "error";
+
+/** Canvas tools from the Tools strip. Everything but "select" turns pointer input into drawing or placing. */
+export type Tool = "select" | "draw" | "eraser" | "shape" | "line" | "sticky" | "text";
+export type PenKind = "pen" | "marker" | "highlighter";
+export type Pen = { kind: PenKind; color: string; size: number };
 
 type ViewState = {
   scale: number;
@@ -15,6 +21,9 @@ type ViewState = {
   fitTick: number;
   spaceDown: boolean;
   saveStatus: SaveStatus;
+  tool: Tool;
+  pen: Pen;
+  shapeKind: ShapeKind;
   set: (p: Partial<Omit<ViewState, "set" | "zoomAt" | "zoomTo" | "requestFit">>) => void;
   /** Zoom keeping the given screen point fixed. */
   zoomAt: (scale: number, px: number, py: number) => void;
@@ -33,6 +42,9 @@ export const useView = create<ViewState>((set, get) => ({
   fitTick: 0,
   spaceDown: false,
   saveStatus: "saved",
+  tool: "select",
+  pen: { kind: "pen", color: "#111827", size: 6 },
+  shapeKind: "rect",
   set: (p) => set(p),
   zoomAt: (next, px, py) => {
     const { scale, x, y } = get();

@@ -8,7 +8,8 @@ A free design editor that runs entirely in your browser. Make social posts, slid
 
 ## Features
 
-- **Editor**: text (17 Latin fonts plus 41 free Malayalam fonts from Google Fonts, Swathanthra Malayalam Computing, Rachana Institute of Typography and Lohit; bold/italic/underline, alignment, spacing), shapes (rectangle, rounded, circle, triangle, star, hexagon), lines and arrows, image upload (button, drag-and-drop or paste).
+- **Editor**: text (17 Latin fonts plus 41 free Malayalam fonts from Google Fonts, Swathanthra Malayalam Computing, Rachana Institute of Typography and Lohit; bold/italic/underline, alignment, spacing), shapes (rectangle, rounded, circle, triangle, star, hexagon), lines and arrows, a searchable font picker with live previews, image upload (button, drag-and-drop or paste).
+- **Tools**: a Canva-style tool strip with select, freehand draw (pen, marker, highlighter, eraser), drag-to-draw shapes and lines, sticky notes and click-to-place text.
 - **Editing**: select, marquee and shift-select, move, resize, rotate, snap guides to page and other elements, double-click text editing, group/ungroup, lock, hide, layer order, align to page, undo/redo, copy/paste/duplicate.
 - **Pages**: multiple pages per design, page background, zoom and pan.
 - **No account**: designs, images and thumbnails are stored in your browser's IndexedDB and saved automatically.
@@ -30,6 +31,7 @@ A free design editor that runs entirely in your browser. Make social posts, slid
 | Zoom in / out / fit | `Ctrl/⌘ +` / `-` / `0`, or `Ctrl/⌘` + scroll |
 | Pan | Scroll, or hold `Space` and drag |
 | New text box | `T` |
+| Tools: select, draw, eraser, shape, line | `V`, `P`, `E`, `R`, `L`; `Esc` back to select |
 | Duplicate while dragging | Hold `Alt/⌥` as you start the drag |
 | Skip snapping while dragging | Hold `Ctrl/⌘` |
 

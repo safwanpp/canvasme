@@ -81,7 +81,9 @@ export function Popover({
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const onResize = () => setOpen(false);
+    // Close on real resizes only; a phone keyboard opening changes just the height.
+    const width = window.innerWidth;
+    const onResize = () => window.innerWidth !== width && setOpen(false);
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     window.addEventListener("resize", onResize);

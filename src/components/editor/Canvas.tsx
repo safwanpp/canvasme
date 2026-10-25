@@ -2,16 +2,25 @@
 
 import type Konva from "konva";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Group, Layer, Line, Rect, Stage, Transformer } from "react-konva";
+import { Circle, Group, Layer, Line, Rect, Stage, Transformer } from "react-konva";
 import { useRouter } from "next/navigation";
 import { ensureFonts, FONTS } from "@/lib/fonts";
 import type { Element } from "@/lib/model";
-import { pageFonts } from "@/lib/render";
+import { lineBetween, lineEnds, pageFonts } from "@/lib/render";
 import { importWorkfile, WORKFILE_EXT } from "@/lib/workfile";
 import { currentPage, normalize, useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
 import { useMediaQuery } from "../ui";
-import { ASSET_DRAG_TYPE, addImageFiles, insertAsset } from "./actions";
+import {
+  ASSET_DRAG_TYPE,
+  addImageFiles,
+  insertAsset,
+  insertText,
+  placeLine,
+  placePath,
+  placeShape,
+  placeSticky,
+} from "./actions";
 import { ElementNode } from "./ElementNode";
 import { TextEditor } from "./TextEditor";
 
@@ -20,6 +29,14 @@ const GUIDE = "#9d7ff4";
 const SNAP_PX = 6;
 
 type Guide = { vertical: boolean; pos: number };
+
+/** In-progress Draw stroke, or the box/segment being dragged out by the Shape and Line tools. */
+type Draft = { kind: "draw"; points: number[] } | { kind: "box"; x0: number; y0: number; x1: number; y1: number };
+
+export const PEN_OPACITY = { pen: 1, marker: 1, highlighter: 0.4 } as const;
+
+/** Pen sizes are relative to the page so a stroke looks the same on a logo or a poster. */
+export const penWidth = (size: number, W: number, H: number) => (size * Math.min(W, H)) / 800;
 
 export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }) {
   const router = useRouter();
@@ -33,7 +50,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const page = useEditor(currentPage);
   const selected = useEditor((s) => s.selected);
   const editingTextId = useEditor((s) => s.editingTextId);
-  const { scale, x, y, container, fitTick, spaceDown } = useView();
+  const { scale, x, y, container, fitTick, spaceDown, tool, pen, shapeKind } = useView();
 
   const [guides, setGuides] = useState<Guide[]>([]);
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -41,6 +58,13 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const panning = useRef(false);
   const touchPan = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const coarse = useMediaQuery("(pointer: coarse)");
+  const [draft, setDraftState] = useState<Draft | null>(null);
+  const draftRef = useRef<Draft | null>(null);
+  const setDraft = (d: Draft | null) => {
+    draftRef.current = d;
+    setDraftState(d);
+  };
+  const erasing = useRef(false);
 
   // Two-finger pinch zooms and pans, wherever the fingers land.
   useEffect(() => {
@@ -68,6 +92,10 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
       });
       nodes.current.forEach((n) => n.isDragging() && n.stopDrag());
       setGuides([]);
+      // A second finger means pinch, not a stroke: drop whatever the first finger started.
+      draftRef.current = null;
+      setDraftState(null);
+      erasing.current = false;
       touchPan.current = null;
       last = read(e.touches);
     };
@@ -161,8 +189,28 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
 
   const lockedOnly = selectedEls.length > 0 && selectedEls.every((e) => e.locked);
 
+  // A single line gets a handle on each end instead of a box: drag one to change length and
+  // angle with the other end fixed. Shift snaps to 15°. Hidden while the whole line is dragged.
+  const [movingLine, setMovingLine] = useState(false);
+  const lineEl = single?.type === "line" && !single.locked && tool === "select" ? single : null;
+  const dragLineEnd = (end: 0 | 1, e: Konva.KonvaEventObject<DragEvent>) => {
+    if (!lineEl) return;
+    const fixed = lineEnds(lineEl)[end === 0 ? 1 : 0];
+    let p = { x: e.target.x(), y: e.target.y() };
+    if (e.evt.shiftKey) {
+      const step = Math.PI / 12;
+      const a = Math.round(Math.atan2(p.y - fixed.y, p.x - fixed.x) / step) * step;
+      const len = Math.hypot(p.x - fixed.x, p.y - fixed.y);
+      p = { x: fixed.x + Math.cos(a) * len, y: fixed.y + Math.sin(a) * len };
+      e.target.position(p);
+    }
+    const [p0, p1] = end === 0 ? [p, fixed] : [fixed, p];
+    useEditor.getState().update([lineEl.id], lineBetween(p0, p1, lineEl.height), { coalesce: `line-end:${lineEl.id}` });
+  };
+
   const onPointerDown = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>, el: Element) => {
-    if (useView.getState().spaceDown) return;
+    // Other tools draw or place over elements; let the stage handle the pointer.
+    if (useView.getState().spaceDown || useView.getState().tool !== "select") return;
     e.cancelBubble = true;
     const st = useEditor.getState();
     const shift = "shiftKey" in e.evt && e.evt.shiftKey;
@@ -186,6 +234,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const altCopy = useRef(false);
   const onDragStart = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
     altCopy.current = false;
+    setMovingLine(true);
     if (!(e.evt as MouseEvent).altKey) return;
     const st = useEditor.getState();
     const id = e.target.id();
@@ -237,6 +286,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
 
   const onDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
     setGuides([]);
+    setMovingLine(false);
     const st = useEditor.getState();
     const id = e.target.id();
     const ids = st.selected.includes(id) ? st.selected : [id];
@@ -280,6 +330,12 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
         Object.assign(p, { width: Math.max(20, (t?.width() ?? el.width) * sx), fontSize: Math.max(1, el.fontSize * sy) });
       } else if (el.type === "line") {
         p.width = Math.max(5, el.width * sx);
+      } else if (el.type === "path") {
+        Object.assign(p, {
+          width: Math.max(1, el.width * sx),
+          height: Math.max(1, el.height * sy),
+          points: el.points.map((v, i) => (i % 2 ? v * sy : v * sx)),
+        });
       } else {
         p.width = Math.max(5, el.width * sx);
         p.height = Math.max(5, el.height * sy);
@@ -294,10 +350,83 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   // Stage: marquee selection, deselect on empty click, pan with space / middle mouse.
   const isBackground = (t: Konva.Node) => t === t.getStage() || t.name() === "page-bg";
 
+  // Tools other than Select: draw, erase, or place an element where the pointer goes down.
+  const pagePoint = () => pageRef.current?.getRelativePointerPosition() ?? null;
+
+  const eraseAtPointer = () => {
+    const stage = stageRef.current;
+    const pos = stage?.getPointerPosition();
+    let node: Konva.Node | null | undefined = pos && stage?.getIntersection(pos);
+    while (node && !(node.id() && byId.has(node.id()))) node = node.getParent();
+    const el = node && byId.get(node.id());
+    if (el?.type === "path" && !el.locked) {
+      useEditor.getState().mutate(
+        (d) => {
+          const pg = d.pages.find((p) => p.id === page?.id);
+          if (pg) pg.elements = pg.elements.filter((o) => o.id !== el.id);
+        },
+        { coalesce: "erase" },
+      );
+    }
+  };
+
+  const toolDown = () => {
+    const p = pagePoint();
+    if (!p) return;
+    const v = useView.getState();
+    const st = useEditor.getState();
+    if (tool === "draw") setDraft({ kind: "draw", points: [p.x, p.y] });
+    else if (tool === "eraser") {
+      erasing.current = true;
+      eraseAtPointer();
+    } else if (tool === "shape" || tool === "line") setDraft({ kind: "box", x0: p.x, y0: p.y, x1: p.x, y1: p.y });
+    else if (tool === "sticky" || tool === "text") {
+      v.set({ tool: "select" });
+      const placing = tool === "sticky" ? placeSticky(p) : insertText("body", p);
+      void placing.then((id) => st.setEditingText(id));
+    }
+  };
+
+  const toolMove = () => {
+    if (erasing.current) return eraseAtPointer();
+    const d = draftRef.current;
+    const p = pagePoint();
+    if (!d || !p) return;
+    if (d.kind === "box") return setDraft({ ...d, x1: p.x, y1: p.y });
+    const n = d.points.length;
+    // Skip points closer than a screen pixel; they add size without detail.
+    if (Math.hypot(p.x - d.points[n - 2], p.y - d.points[n - 1]) * scale < 1) return;
+    setDraft({ kind: "draw", points: [...d.points, p.x, p.y] });
+  };
+
+  const toolUp = () => {
+    erasing.current = false;
+    const d = draftRef.current;
+    if (!d) return;
+    setDraft(null);
+    if (d.kind === "draw") {
+      placePath(d.points, pen.color, penWidth(pen.size, design.width, design.height), PEN_OPACITY[pen.kind]);
+      return;
+    }
+    if (tool === "shape") {
+      placeShape(shapeKind, {
+        x: Math.min(d.x0, d.x1),
+        y: Math.min(d.y0, d.y1),
+        width: Math.abs(d.x1 - d.x0),
+        height: Math.abs(d.y1 - d.y0),
+      });
+    } else placeLine({ x: d.x0, y: d.y0 }, { x: d.x1, y: d.y1 });
+    useView.getState().set({ tool: "select" });
+  };
+
   const onStageDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (useEditor.getState().editingTextId) useEditor.getState().setEditingText(null);
     if (useView.getState().spaceDown || e.evt.button === 1) {
       panning.current = true;
+      return;
+    }
+    if (tool !== "select") {
+      if (e.evt.button === 0) toolDown();
       return;
     }
     if (!isBackground(e.target)) return;
@@ -312,6 +441,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
       v.set({ x: v.x + e.evt.movementX, y: v.y + e.evt.movementY });
       return;
     }
+    if (tool !== "select") return toolMove();
     if (!marquee) return;
     const p = pageRef.current?.getRelativePointerPosition();
     if (p) setMarquee({ ...marquee, x1: p.x, y1: p.y });
@@ -319,6 +449,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
 
   const onStageUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
     panning.current = false;
+    if (tool !== "select") return toolUp();
     if (!marquee) return;
     const x0 = Math.min(marquee.x0, marquee.x1);
     const x1 = Math.max(marquee.x0, marquee.x1);
@@ -334,6 +465,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
 
   // One finger on empty canvas pans; a tap without movement clears the selection.
   const onStageTouchStart = (e: Konva.KonvaEventObject<TouchEvent>) => {
+    if (e.evt.touches.length === 1 && tool !== "select") return toolDown();
     if (e.evt.touches.length !== 1 || !isBackground(e.target)) return;
     if (useEditor.getState().editingTextId) useEditor.getState().setEditingText(null);
     const t = e.evt.touches[0];
@@ -341,6 +473,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   };
 
   const onStageTouchMove = (e: Konva.KonvaEventObject<TouchEvent>) => {
+    if (tool !== "select") return toolMove();
     const p = touchPan.current;
     if (!p || e.evt.touches.length !== 1) return;
     const t = e.evt.touches[0];
@@ -350,6 +483,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   };
 
   const onStageTouchEnd = () => {
+    if (tool !== "select") return toolUp();
     if (touchPan.current && !touchPan.current.moved) useEditor.getState().select([]);
     touchPan.current = null;
   };
@@ -401,7 +535,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     single?.type === "text"
       ? ["top-left", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"]
       : single?.type === "line"
-        ? ["middle-left", "middle-right"]
+        ? []
         : single?.type === "image" || selectedEls.length > 1
           ? ["top-left", "top-right", "bottom-left", "bottom-right"]
           : undefined;
@@ -410,7 +544,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     <div
       ref={wrapRef}
       className="relative h-full w-full touch-none select-none overflow-hidden bg-ink-100"
-      style={{ cursor: spaceDown ? "grab" : "default" }}
+      style={{ cursor: spaceDown ? "grab" : tool === "text" ? "text" : tool === "select" ? "default" : "crosshair" }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
     >
@@ -422,7 +556,10 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
           onMouseDown={onStageDown}
           onMouseMove={onStageMove}
           onMouseUp={onStageUp}
-          onMouseLeave={() => (panning.current = false)}
+          onMouseLeave={() => {
+            panning.current = false;
+            if (tool !== "select") toolUp();
+          }}
           onWheel={onWheel}
           onTouchStart={onStageTouchStart}
           onTouchMove={onStageTouchMove}
@@ -446,6 +583,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                     el={el}
                     editing={el.id === editingTextId}
                     fontsVersion={fontsVersion}
+                    interactive={tool === "select"}
                     register={register}
                     onPointerDown={onPointerDown}
                     onDblClick={onDblClick}
@@ -479,6 +617,57 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                     listening={false}
                   />
                 ))}
+              {draft?.kind === "draw" && (
+                <Line
+                  points={draft.points}
+                  stroke={pen.color}
+                  strokeWidth={penWidth(pen.size, W, H)}
+                  opacity={PEN_OPACITY[pen.kind]}
+                  tension={0.4}
+                  lineCap="round"
+                  lineJoin="round"
+                  listening={false}
+                />
+              )}
+              {draft?.kind === "box" &&
+                (tool === "line" ? (
+                  <Line
+                    points={[draft.x0, draft.y0, draft.x1, draft.y1]}
+                    stroke={ACCENT}
+                    strokeWidth={2 / scale}
+                    listening={false}
+                  />
+                ) : (
+                  <Rect
+                    x={Math.min(draft.x0, draft.x1)}
+                    y={Math.min(draft.y0, draft.y1)}
+                    width={Math.abs(draft.x1 - draft.x0)}
+                    height={Math.abs(draft.y1 - draft.y0)}
+                    stroke={ACCENT}
+                    dash={[6 / scale, 4 / scale]}
+                    strokeWidth={1.5 / scale}
+                    listening={false}
+                  />
+                ))}
+              {lineEl &&
+                !movingLine &&
+                lineEnds(lineEl).map((p, i) => (
+                  <Circle
+                    key={i}
+                    x={p.x}
+                    y={p.y}
+                    radius={(coarse ? 9 : 6) / scale}
+                    hitStrokeWidth={16 / scale}
+                    fill="#ffffff"
+                    stroke={ACCENT}
+                    strokeWidth={1.5 / scale}
+                    draggable
+                    onMouseEnter={(e) => (e.target.getStage()!.container().style.cursor = "move")}
+                    onMouseLeave={(e) => (e.target.getStage()!.container().style.cursor = "")}
+                    onDragMove={(e) => dragLineEnd(i as 0 | 1, e)}
+                    onDragEnd={(e) => dragLineEnd(i as 0 | 1, e)}
+                  />
+                ))}
               {marquee && (
                 <Rect
                   x={Math.min(marquee.x0, marquee.x1)}
@@ -497,6 +686,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
               rotationSnapTolerance={4}
               keepRatio={single?.type !== "shape"}
+              rotateEnabled={single?.type !== "line"}
               enabledAnchors={anchors}
               borderStroke={ACCENT}
               borderStrokeWidth={1.5}
@@ -510,7 +700,8 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
               onTransform={onTransform}
               onTransformEnd={onTransformEnd}
               boundBoxFunc={(oldBox, newBox) =>
-                Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 2 ? oldBox : newBox
+                // Lines are only as tall as their stroke, so don't hold them to a minimum height.
+                Math.abs(newBox.width) < 5 || (single?.type !== "line" && Math.abs(newBox.height) < 2) ? oldBox : newBox
               }
             />
           </Layer>

@@ -27,6 +27,8 @@ type Props = {
   editing: boolean;
   /** Bumped when web fonts finish loading; remounts text so Konva re-measures it. */
   fontsVersion: number;
+  /** False while a drawing tool is active: elements must not drag under the pen. */
+  interactive: boolean;
   register: (id: string, node: Konva.Group | null) => void;
   onPointerDown: (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>, el: Element) => void;
   onDblClick: (el: Element) => void;
@@ -39,6 +41,7 @@ function ElementNodeImpl({
   el,
   editing,
   fontsVersion,
+  interactive,
   register,
   onPointerDown,
   onDblClick,
@@ -54,7 +57,7 @@ function ElementNodeImpl({
       id={el.id}
       {...attrs}
       opacity={editing ? 0 : attrs.opacity}
-      draggable={!el.locked}
+      draggable={interactive && !el.locked}
       onMouseDown={(e) => onPointerDown(e, el)}
       onTouchStart={(e) => onPointerDown(e, el)}
       onDblClick={() => onDblClick(el)}

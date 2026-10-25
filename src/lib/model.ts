@@ -56,6 +56,15 @@ export const LineElement = z.object({
   arrowEnd: z.boolean().default(false),
 });
 
+// Freehand drawing. `points` are x,y pairs in the element's local coordinates.
+export const PathElement = z.object({
+  ...base,
+  type: z.literal("path"),
+  points: z.array(z.number()).min(2),
+  stroke: Color,
+  strokeWidth: z.number().positive(),
+});
+
 export const ImageElement = z.object({
   ...base,
   type: z.literal("image"),
@@ -67,6 +76,7 @@ export const Element = z.discriminatedUnion("type", [
   TextElement,
   ShapeElement,
   LineElement,
+  PathElement,
   ImageElement,
 ]);
 
@@ -103,6 +113,7 @@ export type TextElement = z.infer<typeof TextElement>;
 export type ShapeKind = z.infer<typeof ShapeKind>;
 export type ShapeElement = z.infer<typeof ShapeElement>;
 export type LineElement = z.infer<typeof LineElement>;
+export type PathElement = z.infer<typeof PathElement>;
 export type ImageElement = z.infer<typeof ImageElement>;
 export type Element = z.infer<typeof Element>;
 export type Page = z.infer<typeof Page>;

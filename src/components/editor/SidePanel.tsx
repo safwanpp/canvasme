@@ -13,6 +13,7 @@ import {
   Layers,
   Lock,
   Maximize,
+  PencilRuler,
   Plus,
   Shapes,
   Square,
@@ -31,13 +32,15 @@ import { currentPage, useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
 import { cx, useMediaQuery } from "../ui";
 import { ASSET_DRAG_TYPE, addImageFiles, insertAsset, insertLine, insertShape, insertText } from "./actions";
+import { setTool, ToolStrip } from "./ToolStrip";
 
-type Tab = "text" | "elements" | "uploads" | "layers" | "pages";
+type Tab = "text" | "elements" | "uploads" | "tools" | "layers" | "pages";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode; mobileOnly?: boolean }[] = [
   { id: "text", label: "Text", icon: <Type size={20} /> },
   { id: "elements", label: "Elements", icon: <Shapes size={20} /> },
   { id: "uploads", label: "Uploads", icon: <Upload size={20} /> },
+  { id: "tools", label: "Tools", icon: <PencilRuler size={20} /> },
   { id: "layers", label: "Layers", icon: <Layers size={20} /> },
   { id: "pages", label: "Pages", icon: <Files size={20} />, mobileOnly: true },
 ];
@@ -59,8 +62,19 @@ export function SidePanel({ onNotice }: { onNotice: (msg: string) => void }) {
   // On a phone, get the sheet out of the way once something is placed on the page.
   const selKey = selected.join();
   useEffect(() => {
-    if (mobile && selKey) setTab((t) => (t === "layers" || t === "pages" ? t : null));
+    if (mobile && selKey) setTab((t) => (t === "layers" || t === "pages" || t === "tools" ? t : null));
   }, [mobile, selKey]);
+
+  // A tool shortcut opens the strip so the active tool is visible.
+  const tool = useView((s) => s.tool);
+  useEffect(() => {
+    if (tool !== "select") setTab("tools");
+  }, [tool]);
+
+  // Tools only work while their strip is showing; leaving it goes back to Select.
+  useEffect(() => {
+    if (tab !== "tools") setTool("select");
+  }, [tab]);
 
   const tabs = TABS.filter((t) => mobile || !t.mobileOnly);
 
@@ -89,7 +103,8 @@ export function SidePanel({ onNotice }: { onNotice: (msg: string) => void }) {
           </button>
         ))}
       </nav>
-      {tab && (
+      {tab === "tools" && <ToolStrip mobile={mobile} onClose={() => setTab(null)} />}
+      {tab && tab !== "tools" && (
         <div
           className={cx(
             "relative flex flex-col overflow-y-auto p-4",
@@ -327,6 +342,7 @@ function label(el: Element) {
   if (el.type === "text") return el.text.split("\n")[0].slice(0, 40) || "Text";
   if (el.type === "shape") return el.shape[0].toUpperCase() + el.shape.slice(1);
   if (el.type === "line") return el.arrowEnd ? "Arrow" : "Line";
+  if (el.type === "path") return "Drawing";
   return "Image";
 }
 

@@ -78,6 +78,21 @@ export function elementNodes(el: Element, image?: HTMLImageElement | null): Node
         },
       ];
     }
+    case "path":
+      return [
+        {
+          kind: "Line",
+          attrs: {
+            points: el.points,
+            stroke: el.stroke,
+            strokeWidth: el.strokeWidth,
+            tension: 0.4,
+            lineCap: "round",
+            lineJoin: "round",
+            hitStrokeWidth: Math.max(20, el.strokeWidth),
+          },
+        },
+      ];
     case "shape": {
       const stroke = el.strokeWidth > 0 ? { stroke: el.stroke, strokeWidth: el.strokeWidth } : { strokeEnabled: false };
       if (el.shape === "rect") {
@@ -94,6 +109,27 @@ export function elementNodes(el: Element, image?: HTMLImageElement | null): Node
       ];
     }
   }
+}
+
+type Pt = { x: number; y: number };
+
+/** The two ends of a line element in page coordinates (lines are stored horizontal, rotated about x,y). */
+export function lineEnds(el: Extract<Element, { type: "line" }>): [Pt, Pt] {
+  const a = (el.rotation * Math.PI) / 180;
+  const p0 = { x: el.x - Math.sin(a) * (el.height / 2), y: el.y + Math.cos(a) * (el.height / 2) };
+  return [p0, { x: p0.x + Math.cos(a) * el.width, y: p0.y + Math.sin(a) * el.width }];
+}
+
+/** Position, length and rotation that put a line of the given height from p0 to p1. */
+export function lineBetween(p0: Pt, p1: Pt, height: number) {
+  const a = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+  // The stroke runs along y = height / 2, so shift the origin to put that on p0.
+  return {
+    x: p0.x + Math.sin(a) * (height / 2),
+    y: p0.y - Math.cos(a) * (height / 2),
+    width: Math.max(1, Math.hypot(p1.x - p0.x, p1.y - p0.y)),
+    rotation: (a * 180) / Math.PI,
+  };
 }
 
 export function groupAttrs(el: Element) {
