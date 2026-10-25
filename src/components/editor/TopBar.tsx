@@ -6,7 +6,8 @@ import { Logo } from "../Logo";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { exportImages, exportPdf } from "@/lib/export";
-import { downloadBlob, exportWorkfile, importWorkfile, safeFilename, WORKFILE_EXT } from "@/lib/workfile";
+import { OPEN_ACCEPT, openDesignFile } from "@/lib/importers";
+import { downloadBlob, exportWorkfile, safeFilename, WORKFILE_EXT } from "@/lib/workfile";
 import { useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
 import { IconButton, Popover } from "../ui";
@@ -78,7 +79,7 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
 
       <button
         onClick={() => fileInput.current?.click()}
-        title="Open file"
+        title="Open a .canvasme, .psd, .ai or .pdf file"
         className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium md:px-4 md:py-1.5 text-ink-800 shadow-[var(--shadow-hairline)] hover:bg-ink-100"
       >
         <FolderOpen size={16} /> <span className="hidden md:inline">Open file</span>
@@ -86,15 +87,15 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
       <input
         ref={fileInput}
         type="file"
-        accept={WORKFILE_EXT}
+        accept={OPEN_ACCEPT}
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
           if (f)
             run(async () => {
-              const d = await importWorkfile(f);
-              router.push(`/app/edit?id=${d.id}`);
+              const d = await openDesignFile(f);
+              if (d) router.push(`/app/edit?id=${d.id}`);
             });
         }}
       />
@@ -124,7 +125,19 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
                 onClick={item(() => exportImages(design(), "png", design().pages.map((p) => p.id), 2))}
               />
               <MenuItem label="JPG: this page" hint="Smaller file size" onClick={item(() => exportImages(design(), "jpg", [pageId()], 2))} />
-              <MenuItem label="PDF: all pages" hint="For print and sharing" onClick={item(() => exportPdf(design()))} />
+              <MenuItem
+                label="PDF: all pages"
+                hint="For print and sharing. Opens in Illustrator (pages as images)"
+                onClick={item(() => exportPdf(design()))}
+              />
+              <MenuItem
+                label="PSD: this page"
+                hint="Photoshop file, one layer per element. Text is rasterized"
+                onClick={item(async () => {
+                  const { exportPsd } = await import("@/lib/importers/psdExport");
+                  await exportPsd(design(), pageId());
+                })}
+              />
               <div className="my-1 h-px bg-ink-100" />
               <MenuItem
                 label="Work file (.canvasme)"

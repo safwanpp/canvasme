@@ -29,8 +29,16 @@ async function walk(dir) {
 
 const files = (await walk(OUT))
   .map((f) => relative(OUT, f).split(sep).join("/"))
-  // Malayalam fonts (~4 MB) are cached at runtime when a design first uses them.
-  .filter((f) => !SKIP.has(f) && !f.startsWith("_not-found") && !f.startsWith("fonts/"))
+  // Malayalam fonts (~4 MB) are cached at runtime when a design first uses them. Of pdf.js's
+  // files only the worker is precached, so .ai/.pdf import works offline; its CMaps, standard
+  // fonts and wasm decoders (~4 MB) are fetched, then cached, only by files that need them.
+  .filter(
+    (f) =>
+      !SKIP.has(f) &&
+      !f.startsWith("_not-found") &&
+      !f.startsWith("fonts/") &&
+      !(f.startsWith("pdfjs/") && !f.endsWith("/pdf.worker.min.mjs")),
+  )
   .sort();
 
 const hash = createHash("sha256");

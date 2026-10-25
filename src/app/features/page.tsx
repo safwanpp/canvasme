@@ -6,7 +6,7 @@ import { APP_ID, breadcrumbs, pageMetadata, SITE, WEBSITE_ID } from "@/lib/site"
 
 const TITLE = "Features of canvas.me, the free browser design editor";
 const DESCRIPTION =
-  "Every feature of canvas.me: Malayalam and custom fonts, shapes, drawing, background remover, crop, clipping masks, PNG/JPG/PDF export and offline use.";
+  "Every feature of canvas.me: Malayalam and custom fonts, shapes, drawing, background remover, crop, clipping masks, PSD, AI and PDF import, PNG/JPG/PDF/PSD export and offline use.";
 
 export const metadata: Metadata = pageMetadata({ title: TITLE, description: DESCRIPTION, path: "/features" });
 
@@ -142,6 +142,11 @@ export default function FeaturesPage() {
             </li>
             <li>PNG and JPG exports include the page background colour. There is no transparent-background export yet.</li>
             <li>The background remover downloads its AI model once, the first time you use it.</li>
+            <li>
+              Photoshop files lose adjustment layers, layer effects and blend modes, and exported PSDs have text as pixels.
+              Illustrator and PDF files come in as images (with optional editable text), not editable vector shapes, and
+              an .ai file must have been saved with PDF compatibility.
+            </li>
             <li>There are no templates, stock photos or team sharing. canvas.me is a blank-canvas editor.</li>
           </ul>
         </section>

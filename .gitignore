@@ -42,3 +42,6 @@ next-env.d.ts
 
 # cloudflare
 .wrangler/
+
+# pdf.js worker and data, copied from node_modules by scripts/copy-pdfjs.mjs
+/public/pdfjs/

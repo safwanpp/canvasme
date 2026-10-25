@@ -67,7 +67,11 @@ export const FAQ: Faq[] = [
   },
   {
     q: "Which file types can I export?",
-    a: "PNG and JPG at twice the design size, a zip of every page as images, or a multi-page PDF. You can also download a .canvasme work file to keep editing later.",
+    a: "PNG and JPG at twice the design size, a zip of every page as images, a multi-page PDF, or a Photoshop .psd of the current page with one layer per element (text is rasterized). You can also download a .canvasme work file to keep editing later.",
+  },
+  {
+    q: "Can I open Photoshop (.psd) or Illustrator (.ai) files?",
+    a: "Yes, in the browser, with nothing uploaded. A PSD opens with its pixel layers, groups, opacity and hidden layers, and its straight text layers become editable text. Adjustment layers, layer effects and blend modes aren't imported. An .ai file or a PDF opens with each artboard or page as a high-resolution image, optionally with its straight lines of text as editable text boxes; vector shapes don't become editable. The .ai file needs Illustrator's “Create PDF Compatible File” option, which is on by default. canvas.me doesn't save .ai files: download a PDF, which opens in Illustrator.",
   },
   {
     q: "Can I install it like an app?",

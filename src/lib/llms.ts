@@ -56,6 +56,8 @@ ${SHORTCUTS.map(([k, v]) => `- ${k}: ${v}`).join("\n")}
 
 - Designs live only in the browser where they were made. Clearing site data deletes them, and they don't sync between devices. Download a .canvasme work file to keep a design.
 - PNG and JPG exports include the page background colour; there is no transparent-background export yet.
+- Photoshop import keeps pixel layers, groups, opacity, visibility and straight text; adjustment layers, layer effects, blend modes and vector masks are not imported, and smart objects come in flat. PSD export rasterizes text.
+- Illustrator (.ai) and PDF import brings each artboard or page in as an image (straight text can optionally become editable text boxes). Vector shapes are not editable. .ai files saved without "Create PDF Compatible File" can't be opened, and canvas.me doesn't write .ai files; its PDF export opens in Illustrator.
 - The background remover downloads its AI model (about 44 MB on CPU, 88 MB on WebGPU) the first time it is used.
 
 ## Guide: how to make a Malayalam poster

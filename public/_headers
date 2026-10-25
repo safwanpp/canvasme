@@ -10,6 +10,9 @@
 /fonts/*
   Cache-Control: public, max-age=2592000
 
+/pdfjs/*
+  Cache-Control: public, max-age=31536000, immutable
+
 /apple-icon
   Content-Type: image/png
 
@@ -26,3 +29,6 @@
 /manifest.webmanifest
   Content-Type: application/manifest+json
   Cache-Control: no-cache
+
+/pdfjs/:version/pdf.worker.min.mjs
+  Content-Type: text/javascript

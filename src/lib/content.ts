@@ -58,12 +58,15 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
   {
     id: "files",
-    title: "Saving, export and work files",
+    title: "Saving, import, export and work files",
     items: [
       ["Autosave", "Every change is saved in this browser's IndexedDB storage a moment after you make it."],
       ["No account", "There is no sign-up, login or server copy of your designs."],
       ["Export images", "PNG or JPG at twice the design size, one page or every page as a zip."],
-      ["Export PDF", "A multi-page PDF of the whole design, for print and sharing."],
+      ["Export PDF", "A multi-page PDF of the whole design, for print and sharing. It opens in Illustrator, with each page as an image."],
+      ["Export PSD", "Download the current page as a Photoshop file with one layer per element, groups as layer folders and layer names and visibility kept. Text becomes pixel layers, not editable Photoshop text."],
+      ["Open Photoshop files (.psd)", "Each pixel layer becomes an image at its place, with opacity, hidden layers and groups kept. Straight text layers become editable text boxes; fonts canvas.me doesn't have are swapped for Inter and listed. Adjustment layers, layer effects and blend modes aren't imported, and the flattened image comes along as a hidden layer when something was left out. Files up to 250 MB."],
+      ["Open Illustrator (.ai) and PDF files", "Each artboard or page becomes a page of the design, as a high-resolution image. Optionally, straight lines of text become editable text boxes on top (beta). The .ai file must have been saved with “Create PDF Compatible File”, Illustrator's default. Vector shapes don't become editable shapes."],
       ["Work files", "Download a .canvasme file (a zip with the design, its images and uploaded fonts) to back up a design or move it to another device, then open it to keep editing."],
     ],
   },

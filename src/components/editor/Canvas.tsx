@@ -9,7 +9,7 @@ import type { Element } from "@/lib/model";
 import { downloadPercent } from "@/lib/bgRemove";
 import { scaleMask } from "@/lib/mask";
 import { lineBetween, lineEnds, pageFonts } from "@/lib/render";
-import { importWorkfile, WORKFILE_EXT } from "@/lib/workfile";
+import { canOpen, openDesignFile } from "@/lib/importers";
 import { currentPage, normalize, useEditor } from "@/store/editor";
 import { type BgJob, useView } from "@/store/view";
 import { useMediaQuery } from "../ui";
@@ -553,7 +553,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     }
   };
 
-  // Drop: images, assets from the uploads panel, or a .canvasme work file.
+  // Drop: images, assets from the uploads panel, or a file that opens as a new design (.canvasme, .psd, .ai, .pdf).
   const pagePointFromClient = (clientX: number, clientY: number) => {
     const rect = wrapRef.current!.getBoundingClientRect();
     const v = useView.getState();
@@ -566,11 +566,11 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     const assetId = e.dataTransfer.getData(ASSET_DRAG_TYPE);
     if (assetId) return insertAsset(assetId, at);
     const files = [...e.dataTransfer.files];
-    const work = files.find((f) => f.name.toLowerCase().endsWith(WORKFILE_EXT));
+    const work = files.find(canOpen);
     if (work) {
       try {
-        const d = await importWorkfile(work);
-        router.push(`/app/edit?id=${d.id}`);
+        const d = await openDesignFile(work);
+        if (d) router.push(`/app/edit?id=${d.id}`);
       } catch (err) {
         onNotice((err as Error).message);
       }

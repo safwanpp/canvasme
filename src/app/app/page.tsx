@@ -18,7 +18,9 @@ import {
   savePrefs,
   saveThumb,
 } from "@/lib/storage";
-import { downloadBlob, exportWorkfile, importWorkfile, safeFilename, WORKFILE_EXT } from "@/lib/workfile";
+import { ImportStatus } from "@/components/ImportStatus";
+import { canOpen, OPEN_ACCEPT, openDesignFile } from "@/lib/importers";
+import { downloadBlob, exportWorkfile, safeFilename, WORKFILE_EXT } from "@/lib/workfile";
 
 function useThumb(id: string, version: number) {
   const [src, setSrc] = useState<string>();
@@ -79,13 +81,13 @@ export default function Dashboard() {
 
   const openFile = async (file: File) => {
     setError(null);
-    if (!file.name.toLowerCase().endsWith(WORKFILE_EXT)) {
-      setError(`Choose a ${WORKFILE_EXT} work file.`);
+    if (!canOpen(file)) {
+      setError(`Choose a ${WORKFILE_EXT} work file, or a .psd, .ai or .pdf file.`);
       return;
     }
     try {
-      const d = await importWorkfile(file);
-      router.push(`/app/edit?id=${d.id}`);
+      const d = await openDesignFile(file);
+      if (d) router.push(`/app/edit?id=${d.id}`);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -135,13 +137,13 @@ export default function Dashboard() {
           onClick={() => fileInput.current?.click()}
           className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-[var(--shadow-hairline)] hover:bg-ink-100"
         >
-          <FolderOpen size={16} /> Open work file
+          <FolderOpen size={16} /> Open file
         </button>
         </div>
         <input
           ref={fileInput}
           type="file"
-          accept={WORKFILE_EXT}
+          accept={OPEN_ACCEPT}
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -244,7 +246,7 @@ export default function Dashboard() {
         ) : designs.length === 0 ? (
           <div className="mt-6 rounded-[var(--radius-core)] border border-dashed border-ink-300 bg-surface px-6 py-12 text-center">
             <p className="font-medium">No designs yet</p>
-            <p className="mt-1 text-sm text-ink-500">Pick a size above, or drop a .canvasme file anywhere on this page.</p>
+            <p className="mt-1 text-sm text-ink-500">Pick a size above, or drop a .canvasme, .psd, .ai or .pdf file anywhere on this page.</p>
           </div>
         ) : (
           <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -257,9 +259,10 @@ export default function Dashboard() {
 
       {dragging && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-accent-500/10 ring-4 ring-inset ring-accent-400">
-          <p className="rounded-xl bg-white px-6 py-4 font-medium shadow-lg">Drop your .canvasme file to open it</p>
+          <p className="rounded-xl bg-white px-6 py-4 font-medium shadow-lg">Drop a .canvasme, .psd, .ai or .pdf file to open it</p>
         </div>
       )}
+      <ImportStatus />
     </div>
   );
 }

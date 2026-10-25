@@ -15,6 +15,7 @@ import { ContextToolbar } from "./ContextToolbar";
 import { SidePanel } from "./SidePanel";
 import { setTool } from "./ToolStrip";
 import { TopBar } from "./TopBar";
+import { ImportStatus } from "../ImportStatus";
 
 const SAVE_DELAY_MS = 500;
 const THUMB_DELAY_MS = 2000;
@@ -204,7 +205,8 @@ export default function Editor({ id }: { id: string }) {
   const onNotice = useCallback((msg: string) => {
     setNotice(msg);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setNotice(null), 4000);
+    // Long messages (how to re-save a file, say) stay up long enough to read.
+    timer.current = setTimeout(() => setNotice(null), Math.max(4000, msg.length * 60));
   }, []);
 
   // Re-load whenever the store doesn't hold this design (route change, or a reset store).
@@ -252,6 +254,7 @@ export default function Editor({ id }: { id: string }) {
 }
 
 function EditorLayout({ onNotice, notice }: { onNotice: (m: string) => void; notice: string | null }) {
+  const designId = useEditor((s) => s.design?.id);
   useAutosave();
   useShortcuts(onNotice);
   return (
@@ -275,6 +278,7 @@ function EditorLayout({ onNotice, notice }: { onNotice: (m: string) => void; not
           {notice}
         </div>
       )}
+      <ImportStatus designId={designId} />
     </div>
   );
 }

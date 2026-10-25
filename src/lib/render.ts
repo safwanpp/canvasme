@@ -321,6 +321,38 @@ export async function renderElementsCanvas(els: Element[]) {
   return { canvas, box };
 }
 
+/**
+ * Render one element as it sits on the page, for a layer in an exported file: rotation kept,
+ * opacity and visibility left for the layer to carry. `box` is the whole-pixel rectangle it
+ * covers, clipped to the page; null when nothing of it is on the page.
+ */
+export async function renderElementLayer(design: Design, el: Element, pixelRatio = 1) {
+  const Konva = (await import("konva")).default;
+  await ensureFonts(el.type === "text" ? [el.fontFamily] : []);
+  const images = await loadPageImages([el]);
+  const container = document.createElement("div");
+  const stage = new Konva.Stage({ container, width: design.width, height: design.height });
+  const layer = new Konva.Layer();
+  stage.add(layer);
+  const g = buildElement(Konva, el, images);
+  g.setAttrs({ opacity: 1, visible: true });
+  layer.add(g);
+  const r = g.getClientRect({ skipShadow: true });
+  // Round outwards only a hair, so an image on whole pixels keeps its exact size.
+  const x0 = Math.max(0, Math.floor(r.x + 0.01));
+  const y0 = Math.max(0, Math.floor(r.y + 0.01));
+  const x1 = Math.min(design.width, Math.ceil(r.x + r.width - 0.01));
+  const y1 = Math.min(design.height, Math.ceil(r.y + r.height - 0.01));
+  if (x1 <= x0 || y1 <= y0) {
+    stage.destroy();
+    return null;
+  }
+  const box = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+  const canvas = layer.toCanvas({ ...box, pixelRatio });
+  stage.destroy();
+  return { canvas, box };
+}
+
 export const canvasToBlob = (c: HTMLCanvasElement, type = "image/png", quality?: number) =>
   new Promise<Blob>((resolve, reject) =>
     c.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), type, quality),
