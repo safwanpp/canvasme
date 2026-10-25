@@ -6,8 +6,9 @@ import { IconButton, Popover } from "./ui";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
-// Chromium fires `beforeinstallprompt` once, often before any button mounts, so keep it here.
-let deferredPrompt: InstallPromptEvent | null = null;
+// Captured by the inline script in the root layout, which also fires INSTALLABLE when it changes.
+type InstallWindow = Window & { __installPrompt?: InstallPromptEvent | null };
+const getPrompt = () => (window as InstallWindow).__installPrompt ?? null;
 const INSTALLABLE = "canvasme:installable";
 
 const isStandalone = () =>
@@ -20,18 +21,6 @@ export function PwaRegister() {
   const userAsked = useRef(false);
 
   useEffect(() => {
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      deferredPrompt = e as InstallPromptEvent;
-      window.dispatchEvent(new Event(INSTALLABLE));
-    };
-    const onInstalled = () => {
-      deferredPrompt = null;
-      window.dispatchEvent(new Event(INSTALLABLE));
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", onInstalled);
-
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
       // Only reload when the user chose to; the first install also changes the controller.
       navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -52,10 +41,6 @@ export function PwaRegister() {
           // Offline support is an enhancement; the app works without it.
         });
     }
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
   }, []);
 
   if (!waiting) return null;
@@ -82,7 +67,7 @@ type InstallMode = "installed" | "prompt" | "ios" | "mac-safari" | "android" | "
 
 function detectMode(): InstallMode {
   if (isStandalone()) return "installed";
-  if (deferredPrompt) return "prompt";
+  if (getPrompt()) return "prompt";
   const ua = navigator.userAgent;
   if (/iphone|ipad|ipod/i.test(ua) || (navigator.maxTouchPoints > 1 && /macintosh/i.test(ua))) return "ios";
   if (/android/i.test(ua)) return "android";
@@ -178,11 +163,12 @@ export function InstallButton({
         title="Download canvas.me as an app"
         className={classes}
         onClick={async () => {
-          const p = deferredPrompt;
+          const p = getPrompt();
           if (!p) return;
           await p.prompt();
           await p.userChoice;
-          deferredPrompt = null;
+          // A prompt event can only be used once.
+          (window as InstallWindow).__installPrompt = null;
           setMode(detectMode());
         }}
       >

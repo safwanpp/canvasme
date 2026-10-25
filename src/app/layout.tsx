@@ -28,9 +28,16 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#f3f4f7" };
 
+// Chromium fires `beforeinstallprompt` once, often before React hydrates, so catch it in <head>
+// and keep it on window for InstallButton to open the native install dialog.
+const captureInstallPrompt = `addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__installPrompt=e;dispatchEvent(new Event("canvasme:installable"))});addEventListener("appinstalled",function(){window.__installPrompt=null;dispatchEvent(new Event("canvasme:installable"))});`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: captureInstallPrompt }} />
+      </head>
       <body className={`${geist.variable} ${geistMono.variable} antialiased`}>
         {children}
         <PwaRegister />
