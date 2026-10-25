@@ -124,6 +124,7 @@ const HELP: Record<Exclude<InstallMode, "installed" | "prompt">, { title: string
     steps: [
       "Click the install icon at the right end of the address bar.",
       "Or open the browser menu and choose Install canvas.me (in Edge: Apps, then Install this site as an app).",
+      "Already installed? Open it from your Dock, Launchpad or Start menu, or click Open in app in the address bar.",
     ],
   },
   unsupported: {
