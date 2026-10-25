@@ -134,9 +134,10 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     };
   }, [fontKey]);
 
-  // Warm the rest of the font list so the picker can switch instantly.
+  // Warm the rest of the Latin font list so the picker can switch instantly. Malayalam
+  // fonts are larger (about 4 MB together), so they load only when a design uses them.
   useEffect(() => {
-    const t = setTimeout(() => ensureFonts(FONTS.map((f) => f.family)), 1500);
+    const t = setTimeout(() => ensureFonts(FONTS.filter((f) => !f.script).map((f) => f.family)), 1500);
     return () => clearTimeout(t);
   }, []);
 

@@ -8,7 +8,7 @@ A free design editor that runs entirely in your browser. Make social posts, slid
 
 ## Features
 
-- **Editor**: text (16 Google Fonts, bold/italic/underline, alignment, spacing), shapes (rectangle, rounded, circle, triangle, star, hexagon), lines and arrows, image upload (button, drag-and-drop or paste).
+- **Editor**: text (17 Latin fonts plus 41 free Malayalam fonts from Google Fonts, Swathanthra Malayalam Computing, Rachana Institute of Typography and Lohit; bold/italic/underline, alignment, spacing), shapes (rectangle, rounded, circle, triangle, star, hexagon), lines and arrows, image upload (button, drag-and-drop or paste).
 - **Editing**: select, marquee and shift-select, move, resize, rotate, snap guides to page and other elements, double-click text editing, group/ungroup, lock, hide, layer order, align to page, undo/redo, copy/paste/duplicate.
 - **Pages**: multiple pages per design, page background, zoom and pan.
 - **No account**: designs, images and thumbnails are stored in your browser's IndexedDB and saved automatically.

@@ -17,7 +17,8 @@ async function walk(dir) {
 
 const files = (await walk(OUT))
   .map((f) => relative(OUT, f).split(sep).join("/"))
-  .filter((f) => !SKIP.has(f) && !f.startsWith("_not-found"))
+  // Malayalam fonts (~4 MB) are cached at runtime when a design first uses them.
+  .filter((f) => !SKIP.has(f) && !f.startsWith("_not-found") && !f.startsWith("fonts/"))
   .sort();
 
 const hash = createHash("sha256");

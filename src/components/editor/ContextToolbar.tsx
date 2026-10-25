@@ -35,6 +35,11 @@ import type { Element } from "@/lib/model";
 import { currentPage, useEditor } from "@/store/editor";
 import { ColorInput, Divider, IconButton, Popover, Slider } from "../ui";
 
+const FONT_GROUPS = [
+  ["Latin", FONTS.filter((f) => !f.script)],
+  ["Malayalam · മലയാളം", FONTS.filter((f) => f.script === "malayalam")],
+] as const;
+
 type AlignTarget = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
 
 export function ContextToolbar() {
@@ -111,10 +116,14 @@ export function ContextToolbar() {
             className="h-9 w-32 shrink-0 rounded-[10px] md:h-8 md:w-40 border border-ink-200 bg-surface px-2 text-sm"
             style={{ fontFamily: `"${first.fontFamily}"` }}
           >
-            {FONTS.map((f) => (
-              <option key={f.family} value={f.family} style={{ fontFamily: `"${f.family}"` }}>
-                {f.family}
-              </option>
+            {FONT_GROUPS.map(([label, fonts]) => (
+              <optgroup key={label} label={label}>
+                {fonts.map((f) => (
+                  <option key={f.family} value={f.family} style={{ fontFamily: `"${f.family}"` }}>
+                    {f.family}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <div className="flex shrink-0 items-center rounded-md border border-ink-200">
