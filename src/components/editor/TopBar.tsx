@@ -37,7 +37,7 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-1 border-b border-ink-200 bg-surface/80 px-3 text-ink-900 backdrop-blur-xl">
+    <header className="relative z-40 flex h-14 shrink-0 items-center gap-1 border-b border-ink-200 bg-surface/80 px-3 text-ink-900 backdrop-blur-xl">
       <Link href="/app" title="All designs" className="flex shrink-0 items-center gap-2 rounded-full px-2 py-1.5 hover:bg-ink-100 md:px-3">
         <Logo id="top" size={20} className="text-sm" textClassName="hidden md:inline" />
       </Link>

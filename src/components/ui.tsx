@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { twMerge } from "tailwind-merge";
 
 export function useMediaQuery(query: string) {
@@ -78,7 +79,8 @@ export function Popover({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !panelRef.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     // Close on real resizes only; a phone keyboard opening changes just the height.
@@ -127,15 +129,19 @@ export function Popover({
       >
         {trigger}
       </IconButton>
-      {open && (
-        <div
-          ref={panelRef}
-          style={pos}
-          className="fixed z-50 min-w-48 max-w-[calc(100vw-16px)] rounded-[var(--radius-input)] bg-surface p-3 shadow-[var(--shadow-hairline),var(--shadow-soft)]"
-        >
-          {typeof children === "function" ? children(close) : children}
-        </div>
-      )}
+      {/* Portal to <body>: a parent with backdrop-filter or z-index would otherwise trap the
+          fixed panel beneath later content (the editor and dashboard headers do this). */}
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={pos}
+            className="fixed z-50 min-w-48 max-w-[calc(100vw-16px)] rounded-[var(--radius-input)] bg-surface p-3 shadow-[var(--shadow-hairline),var(--shadow-soft)]"
+          >
+            {typeof children === "function" ? children(close) : children}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

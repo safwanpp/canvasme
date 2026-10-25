@@ -68,6 +68,7 @@ function FontList({ value, onPick }: { value: string; onPick: (family: string) =
   const [active, setActive] = useState(-1);
   const [recent] = useState(readRecent);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const design = useEditor((s) => s.design);
 
   const docFonts = useMemo(() => {
@@ -97,6 +98,14 @@ function FontList({ value, onPick }: { value: string; onPick: (family: string) =
 
   const flat = sections.flatMap((s) => s.fonts);
 
+  // Focus search on desktop (on a phone it would throw the keyboard over the list). Wait a frame:
+  // the popover mounts hidden until it is positioned, and hidden inputs can't take focus.
+  useEffect(() => {
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    const id = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   useEffect(() => {
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [active]);
@@ -118,8 +127,7 @@ function FontList({ value, onPick }: { value: string; onPick: (family: string) =
       <label className="flex items-center gap-2 rounded-full bg-ink-50 px-3 shadow-[var(--shadow-hairline)] focus-within:ring-2 focus-within:ring-accent-400">
         <Search size={15} className="shrink-0 text-ink-400" />
         <input
-          // Focus search on desktop; on a phone that would throw up the keyboard over the list.
-          autoFocus={window.matchMedia("(pointer: fine)").matches}
+          ref={searchRef}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);

@@ -63,7 +63,24 @@ export function PwaRegister() {
   );
 }
 
-type InstallMode = "installed" | "prompt" | "ios" | "mac-safari" | "android" | "chromium" | "unsupported";
+type InstallMode =
+  | "installed"
+  | "installed-app"
+  | "prompt"
+  | "ios"
+  | "mac-safari"
+  | "android"
+  | "chromium"
+  | "unsupported";
+
+type RelatedNavigator = Navigator & { getInstalledRelatedApps?: () => Promise<unknown[]> };
+
+// Chromium reports the installed app (via manifest related_applications) when viewed in a browser tab.
+let installedApp: Promise<boolean> | null = null;
+const checkInstalledApp = () =>
+  (installedApp ??= ((navigator as RelatedNavigator).getInstalledRelatedApps?.() ?? Promise.resolve([]))
+    .then((apps) => apps.length > 0)
+    .catch(() => false));
 
 function detectMode(): InstallMode {
   if (isStandalone()) return "installed";
@@ -77,6 +94,13 @@ function detectMode(): InstallMode {
 }
 
 const HELP: Record<Exclude<InstallMode, "installed" | "prompt">, { title: string; steps: React.ReactNode[] }> = {
+  "installed-app": {
+    title: "canvas.me is already installed",
+    steps: [
+      "Open it from your Dock, Launchpad, Start menu or home screen.",
+      "In Chrome or Edge you can also click Open in app at the right end of the address bar.",
+    ],
+  },
   ios: {
     title: "Add canvas.me to your Home Screen",
     steps: [
@@ -138,10 +162,21 @@ export function InstallButton({
   const [mode, setMode] = useState<InstallMode>("installed");
 
   useEffect(() => {
-    const update = () => setMode(detectMode());
+    let alive = true;
+    const update = () => {
+      const next = detectMode();
+      setMode(next);
+      // No install prompt in a Chromium browser often means it is installed already.
+      if (next !== "installed" && next !== "prompt") {
+        void checkInstalledApp().then((yes) => alive && yes && setMode("installed-app"));
+      }
+    };
     update();
     window.addEventListener(INSTALLABLE, update);
-    return () => window.removeEventListener(INSTALLABLE, update);
+    return () => {
+      alive = false;
+      window.removeEventListener(INSTALLABLE, update);
+    };
   }, []);
 
   if (mode === "installed") return null;
@@ -152,7 +187,7 @@ export function InstallButton({
     ) : (
       <>
         {variant !== "link" && <Download size={variant === "onAccent" ? 17 : 16} />}
-        <span>Download app</span>
+        <span>{mode === "installed-app" ? "Open app" : "Download app"}</span>
       </>
     );
   const classes = `${VARIANTS[variant]} active:scale-[0.98] ${className}`;
@@ -187,7 +222,7 @@ export function InstallButton({
             <li key={i}>{step}</li>
           ))}
         </ol>
-        {mode !== "unsupported" && (
+        {mode !== "unsupported" && mode !== "installed-app" && (
           <p className="mt-3 text-xs text-ink-500">It opens in its own window and works offline.</p>
         )}
       </div>

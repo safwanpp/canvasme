@@ -40,6 +40,8 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: "New story", url: "/app?size=1080x1920&name=Story" },
       { name: "New presentation", url: "/app?size=1920x1080&name=Presentation" },
     ],
+    // Lets the site ask navigator.getInstalledRelatedApps() whether the app is already installed.
+    related_applications: [{ platform: "webapp", url: "/manifest.webmanifest" }],
     // Chromium desktop: double-click a .canvasme file to open it in the installed app.
     file_handlers: [{ action: "/app", accept: { "application/x-canvasme": [".canvasme"] } }],
   } as MetadataRoute.Manifest;
