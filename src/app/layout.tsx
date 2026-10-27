@@ -38,8 +38,9 @@ export const viewport: Viewport = { themeColor: "#f3f4f7" };
 const captureInstallPrompt = `addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__installPrompt=e;dispatchEvent(new Event("canvasme:installable"))});addEventListener("appinstalled",function(){window.__installPrompt=null;dispatchEvent(new Event("canvasme:installable"))});`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // suppressHydrationWarning: the /app theme script sets data-theme and colorScheme on <html> before hydration.
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: captureInstallPrompt }} />
       </head>

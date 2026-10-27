@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ThemeScope } from "@/components/ThemeScope";
+import { THEME_INIT_SCRIPT } from "@/lib/themeScript";
 
 export const metadata: Metadata = {
   title: "Your designs",
@@ -7,5 +9,11 @@ export const metadata: Metadata = {
 };
 
 export default function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      <ThemeScope />
+      {children}
+    </>
+  );
 }

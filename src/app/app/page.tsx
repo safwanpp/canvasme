@@ -6,6 +6,7 @@ import { Logo } from "@/components/Logo";
 import { InstallButton, useLaunchedFiles } from "@/components/Pwa";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Popover } from "@/components/ui";
 import { type Design, newDesign, SIZE_PRESETS, uid } from "@/lib/model";
 import {
@@ -131,6 +132,7 @@ export default function Dashboard() {
           <Logo id="dash" />
         </Link>
         <div className="flex items-center gap-2">
+          <ThemeToggle segmentedFrom="sm" />
           <InstallButton variant="icon" className="sm:hidden" />
           <InstallButton className="hidden sm:flex" />
           <button
@@ -233,7 +235,7 @@ export default function Dashboard() {
             </span>
             <button
               type="submit"
-              className="flex items-center justify-center gap-1 rounded-full bg-accent-500 shadow-[var(--shadow-cta)] py-1.5 text-sm font-semibold text-white hover:bg-accent-600"
+              className="flex items-center justify-center gap-1 rounded-full bg-accent-fill shadow-[var(--shadow-cta)] py-1.5 text-sm font-semibold text-white hover:bg-accent-fill-hover"
             >
               <Plus size={14} /> Create
             </button>
@@ -259,7 +261,7 @@ export default function Dashboard() {
 
       {dragging && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-accent-500/10 ring-4 ring-inset ring-accent-400">
-          <p className="rounded-xl bg-white px-6 py-4 font-medium shadow-lg">Drop a .canvasme, .psd, .ai or .pdf file to open it</p>
+          <p className="rounded-xl bg-surface px-6 py-4 font-medium shadow-lg">Drop a .canvasme, .psd, .ai or .pdf file to open it</p>
         </div>
       )}
       <ImportStatus />

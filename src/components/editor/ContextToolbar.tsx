@@ -609,14 +609,14 @@ function BgRemover({ elId }: { elId: string }) {
             Runs on this device; the image never leaves your browser.
             {!ready && ` The first time downloads a ${MODEL_SIZE_MB} MB model, which is then kept for next time.`}
           </p>
-          {mine?.error && <p className="mt-2 text-xs text-[#B23A30]">It didn&apos;t work: {mine.error}</p>}
+          {mine?.error && <p className="mt-2 text-xs text-[#B23A30] dark:text-[#f0867c]">It didn&apos;t work: {mine.error}</p>}
           <button
             disabled={busy}
             onClick={() => {
               void removeImageBackground(elId);
               close();
             }}
-            className="mt-3 w-full rounded-full bg-accent-500 px-3 py-2 text-sm font-semibold text-white shadow-[var(--shadow-cta)] hover:bg-accent-600 disabled:opacity-50"
+            className="mt-3 w-full rounded-full bg-accent-fill px-3 py-2 text-sm font-semibold text-white shadow-[var(--shadow-cta)] hover:bg-accent-fill-hover disabled:opacity-50"
           >
             {!busy ? "Remove background" : mine ? "Working on it…" : "Busy with another image…"}
           </button>

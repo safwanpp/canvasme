@@ -10,6 +10,7 @@ import { OPEN_ACCEPT, openDesignFile } from "@/lib/importers";
 import { downloadBlob, exportWorkfile, safeFilename, WORKFILE_EXT } from "@/lib/workfile";
 import { useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
+import { ThemeToggle } from "../ThemeToggle";
 import { IconButton, Popover } from "../ui";
 
 const BAR_BTN = "text-ink-700 hover:bg-ink-100";
@@ -62,7 +63,7 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
         )}
         {saveStatus === "error" && (
           <>
-            <CloudOff size={12} className="text-[#B23A30]" /> <span className="hidden lg:inline">Not saved. Download a work file</span>
+            <CloudOff size={12} className="text-[#B23A30] dark:text-[#f0867c]" /> <span className="hidden lg:inline">Not saved. Download a work file</span>
           </>
         )}
       </span>
@@ -100,10 +101,12 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
         }}
       />
 
+      <ThemeToggle />
+
       <Popover
         title="Download"
         align="right"
-        triggerClassName="h-9 rounded-full bg-accent-500 px-2.5 md:px-4 text-white shadow-[var(--shadow-cta)] hover:bg-accent-600"
+        triggerClassName="h-9 rounded-full bg-accent-fill px-2.5 md:px-4 text-white shadow-[var(--shadow-cta)] hover:bg-accent-fill-hover"
         trigger={
           <>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}

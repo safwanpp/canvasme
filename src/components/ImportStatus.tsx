@@ -15,7 +15,7 @@ export function ImportStatus({ designId }: { designId?: string }) {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-24 left-1/2 z-[60] flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-2 rounded-lg bg-ink-900 px-4 py-2 text-sm text-white shadow-lg"
+          className="fixed bottom-24 left-1/2 z-[60] flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-2 rounded-lg bg-ink-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-ink-200 dark:shadow-[var(--shadow-hairline)]"
         >
           <Loader2 size={14} className="shrink-0 animate-spin" />
           <span className="truncate">{progress.label}</span>
@@ -24,7 +24,7 @@ export function ImportStatus({ designId }: { designId?: string }) {
       )}
 
       {ask && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-ink-900/30 px-4" onClick={() => ask.answer(null)}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-scrim px-4" onClick={() => ask.answer(null)}>
           <div
             role="dialog"
             aria-modal="true"
@@ -41,7 +41,7 @@ export function ImportStatus({ designId }: { designId?: string }) {
               <button
                 autoFocus
                 onClick={() => ask.answer("image")}
-                className="block w-full rounded-[var(--radius-input)] bg-accent-500 px-4 py-3 text-left text-white shadow-[var(--shadow-cta)] hover:bg-accent-600"
+                className="block w-full rounded-[var(--radius-input)] bg-accent-fill px-4 py-3 text-left text-white shadow-[var(--shadow-cta)] hover:bg-accent-fill-hover"
               >
                 <span className="block text-sm font-semibold">Import as image</span>
                 <span className="block text-xs text-white/80">Looks exactly like the original. Each page or artboard is one picture.</span>

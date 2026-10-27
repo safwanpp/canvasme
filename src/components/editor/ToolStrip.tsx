@@ -149,7 +149,7 @@ export function ToolStrip({ mobile, onClose }: { mobile: boolean; onClose: () =>
                     aria-label={`Color ${c}`}
                     onClick={() => set({ pen: { ...pen, color: c } })}
                     className={cx(
-                      "h-6 w-6 rounded-full shadow-[inset_0_0_0_1px_rgba(14,21,48,0.15)]",
+                      "h-6 w-6 rounded-full shadow-[inset_0_0_0_1px_rgba(14,21,48,0.15)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.4)]",
                       pen.color.toLowerCase() === c && "ring-2 ring-accent-500 ring-offset-2 ring-offset-surface",
                     )}
                     style={{ background: c }}

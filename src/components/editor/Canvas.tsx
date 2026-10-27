@@ -15,6 +15,7 @@ import { canOpen, openDesignFile } from "@/lib/importers";
 import { buildRenderTree, effectiveFlags, expandToLeaves } from "@/lib/tree";
 import { currentPage, lockedIds, normalize, useEditor } from "@/store/editor";
 import { type BgJob, useView } from "@/store/view";
+import { useResolvedTheme } from "@/lib/theme";
 import { useMediaQuery } from "../ui";
 import {
   ASSET_DRAG_TYPE,
@@ -32,7 +33,9 @@ import { EraseEditor, finishErase } from "./EraseEditor";
 import { MaskEditor } from "./MaskEditor";
 import { TextEditor } from "./TextEditor";
 
-const ACCENT = "#3e3aa8";
+const ACCENT_LIGHT = "#3e3aa8";
+// Brighter on the dark theme so handles and outlines stay visible on the dark workspace.
+const ACCENT_DARK = "#7470e6";
 const GUIDE = "#9d7ff4";
 const SNAP_PX = 6;
 
@@ -68,6 +71,8 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   const panning = useRef(false);
   const touchPan = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const coarse = useMediaQuery("(pointer: coarse)");
+  const dark = useResolvedTheme() === "dark";
+  const ACCENT = dark ? ACCENT_DARK : ACCENT_LIGHT;
   const [draft, setDraftState] = useState<Draft | null>(null);
   const draftRef = useRef<Draft | null>(null);
   const setDraft = (d: Draft | null) => {
@@ -726,7 +731,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                 width={W}
                 height={H}
                 fill={page.background}
-                shadowColor="rgba(30,34,90,0.22)"
+                shadowColor={dark ? "rgba(0,0,0,0.6)" : "rgba(30,34,90,0.22)"}
                 shadowBlur={24 / scale}
                 shadowOffsetY={4 / scale}
               />
@@ -838,7 +843,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                   y={Math.min(marquee.y0, marquee.y1)}
                   width={Math.abs(marquee.x1 - marquee.x0)}
                   height={Math.abs(marquee.y1 - marquee.y0)}
-                  fill="rgba(62,58,168,0.08)"
+                  fill={dark ? "rgba(116,112,230,0.15)" : "rgba(62,58,168,0.08)"}
                   stroke={ACCENT}
                   strokeWidth={1 / scale}
                   listening={false}
@@ -935,7 +940,7 @@ function AiMagicOverlay({
         ))}
       </div>
       {w > 90 && h > 40 && (
-        <span className="ai-magic__label flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-accent-600 shadow-[var(--shadow-soft)] backdrop-blur">
+        <span className="ai-magic__label flex items-center gap-1.5 rounded-full bg-surface/90 px-3 py-1.5 text-xs font-semibold text-accent-600 shadow-[var(--shadow-soft)] backdrop-blur">
           <svg viewBox="0 0 24 24" width={13} height={13} className="animate-spin [animation-duration:2.4s]">
             <path fill="currentColor" d="M12 0c.8 6.4 5.6 11.2 12 12-6.4.8-11.2 5.6-12 12-.8-6.4-5.6-11.2-12-12C6.4 11.2 11.2 6.4 12 0z" />
           </svg>

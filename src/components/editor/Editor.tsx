@@ -248,7 +248,7 @@ export default function Editor({ id }: { id: string }) {
         <p className="max-w-sm text-center text-sm text-ink-500">
           Designs are stored locally. If you made it on another device, open its .canvasme work file instead.
         </p>
-        <Link href="/app" className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-600">
+        <Link href="/app" className="rounded-lg bg-accent-fill px-4 py-2 text-sm font-semibold text-white hover:bg-accent-fill-hover">
           Back to designs
         </Link>
       </div>
@@ -282,7 +282,7 @@ function EditorLayout({ onNotice, notice }: { onNotice: (m: string) => void; not
       {notice && (
         <div
           role="status"
-          className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-ink-900 px-4 py-2 text-sm text-white shadow-lg"
+          className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-ink-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-ink-200 dark:shadow-[var(--shadow-hairline)]"
         >
           {notice}
         </div>

@@ -202,7 +202,7 @@ function FontList({ value, onPick }: { value: string; onPick: (family: string) =
             }}
             className={cx(
               "rounded-full px-3 py-1 text-xs font-medium text-ink-600 shadow-[var(--shadow-hairline)] hover:bg-ink-100",
-              filter === id && "bg-accent-500 text-white shadow-none hover:bg-accent-500",
+              filter === id && "bg-accent-fill text-white shadow-none hover:bg-accent-fill",
             )}
           >
             {label}
@@ -213,7 +213,7 @@ function FontList({ value, onPick }: { value: string; onPick: (family: string) =
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
-        className="mt-2 flex items-center justify-center gap-2 rounded-[var(--radius-input)] border border-dashed border-ink-300 px-3 py-2 text-sm font-medium text-ink-700 hover:border-accent-400 hover:bg-accent-50 hover:text-accent-600 disabled:opacity-60"
+        className="mt-2 flex items-center justify-center gap-2 rounded-[var(--radius-input)] border border-dashed border-ink-300 px-3 py-2 text-sm font-medium text-ink-700 hover:border-accent-400 hover:bg-accent-50 hover:text-accent-600  disabled:opacity-60"
       >
         {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
         {uploading ? "Adding font…" : "Upload a font"}
