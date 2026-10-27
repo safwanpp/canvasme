@@ -28,7 +28,7 @@ export function BottomBar() {
             )}
             style={{ aspectRatio: pageRatio(design, p), backgroundColor: p.background, maxWidth: 96 }}
           >
-            <span className="absolute bottom-0.5 left-1 rounded bg-white/80 px-1">{i + 1}</span>
+            <span className="absolute bottom-0.5 left-1 rounded bg-surface/80 px-1">{i + 1}</span>
           </button>
         ))}
         <IconButton title="Add page" onClick={st.addPage} className="h-12 w-12 border-2 border-dashed border-ink-200">

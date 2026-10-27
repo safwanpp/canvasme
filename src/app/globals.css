@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Dark mode applies only where <html data-theme="dark"> is set, which is the /app routes. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 /* Design tokens follow the SETITUP agency system (setitup.in). */
 @theme {
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -30,6 +33,12 @@
   --color-accent-700: #2a2780;
 
   --color-surface: #fdfdfe;
+  --color-scrim: rgba(14, 21, 48, 0.3);
+
+  /* Button fills carry white text, so they get their own tokens (the dark theme brightens the
+     accent for text, which a white-text fill cannot use). */
+  --color-accent-fill: #3e3aa8;
+  --color-accent-fill-hover: #34309a;
   --color-lavender: #9d7ff4;
 
   --radius-input: 14px;
@@ -41,6 +50,41 @@
   --shadow-hairline: inset 0 0 0 1px rgba(14, 21, 48, 0.08);
 
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Dark theme: the ink scale is flipped (50 = deepest background, 900 = main text), the accent
+   brightens for contrast. Utilities read these variables, so most of the UI follows. */
+:root[data-theme="dark"] {
+  --color-ink-50: #0a0e1f;
+  --color-ink-100: #172040;
+  --color-ink-200: #262f55;
+  --color-ink-300: #3b446d;
+  --color-ink-400: #8089a8;
+  --color-ink-500: #9fa6c2;
+  --color-ink-600: #b7bcd2;
+  --color-ink-700: #ccd0e2;
+  --color-ink-800: #e0e3ef;
+  --color-ink-900: #f1f2f8;
+  --color-ink-950: #f8f9fc;
+
+  --color-accent-50: #1f1e4d;
+  --color-accent-100: #2a2963;
+  --color-accent-200: #3d3a8c;
+  --color-accent-300: #b0adf5;
+  --color-accent-400: #8d89ec;
+  /* 500 and 600 are the text/icon/stroke accents: at least 5:1 on the dark surfaces and the active tint. */
+  --color-accent-500: #9a97f2;
+  --color-accent-600: #aeabf5;
+  --color-accent-700: #c9c7f8;
+  --color-accent-fill: #5753cf;
+  --color-accent-fill-hover: #4a46bd;
+  --color-scrim: rgba(0, 0, 0, 0.62);
+
+  --color-surface: #111732;
+
+  --shadow-soft: 0 1px 1px rgba(0, 0, 0, 0.3), 0 30px 60px -36px rgba(0, 0, 0, 0.7);
+  --shadow-cta: 0 16px 32px -16px rgba(87, 83, 207, 0.55);
+  --shadow-hairline: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 html,

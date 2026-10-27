@@ -181,7 +181,7 @@ export function ColorInput({
       title={title}
       className="relative inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md hover:bg-ink-100"
     >
-      <span className="h-5 w-5 rounded-full border border-ink-300 shadow-inner" style={{ background: value }} />
+      <span className="h-5 w-5 rounded-full border border-ink-300 shadow-inner dark:border-ink-500" style={{ background: value }} />
       <input
         type="color"
         aria-label={title}
@@ -306,7 +306,7 @@ export function Toggle({
       onClick={() => onChange(!checked)}
       className={cx(
         "relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors duration-150",
-        checked ? "bg-accent-500" : "bg-ink-300",
+        checked ? "bg-accent-fill" : "bg-ink-300",
       )}
     >
       <span
@@ -380,7 +380,7 @@ export function GradientInput({
         <div
           ref={barRef}
           role="presentation"
-          className="h-5 cursor-copy rounded-md shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]"
+          className="h-5 cursor-copy rounded-md shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)]"
           style={{ background: css }}
           onPointerDown={(e) => {
             if (e.target === e.currentTarget) add(offsetAt(e.clientX));

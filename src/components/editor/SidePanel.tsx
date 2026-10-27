@@ -176,7 +176,7 @@ function PagesTab() {
             )}
             style={{ aspectRatio: pageRatio(design, p), backgroundColor: p.background }}
           >
-            <span className="absolute bottom-1 left-1 rounded bg-white/85 px-1 font-mono text-[11px] text-ink-600">
+            <span className="absolute bottom-1 left-1 rounded bg-surface/85 px-1 font-mono text-[11px] text-ink-600">
               {i + 1}
             </span>
           </button>
@@ -221,7 +221,7 @@ function TextTab() {
       <Heading>Text</Heading>
       <button
         onClick={() => insertText("heading")}
-        className="mb-2 w-full rounded-full bg-accent-500 shadow-[var(--shadow-cta)] px-3 py-2.5 text-sm font-semibold text-white hover:bg-accent-600"
+        className="mb-2 w-full rounded-full bg-accent-fill shadow-[var(--shadow-cta)] px-3 py-2.5 text-sm font-semibold text-white hover:bg-accent-fill-hover"
       >
         Add a text box
       </button>
@@ -329,7 +329,7 @@ function UploadsTab({ onNotice }: { onNotice: (msg: string) => void }) {
       <Heading>Uploads</Heading>
       <button
         onClick={() => input.current?.click()}
-        className="mb-2 w-full rounded-full bg-accent-500 shadow-[var(--shadow-cta)] px-3 py-2.5 text-sm font-semibold text-white hover:bg-accent-600"
+        className="mb-2 w-full rounded-full bg-accent-fill shadow-[var(--shadow-cta)] px-3 py-2.5 text-sm font-semibold text-white hover:bg-accent-fill-hover"
       >
         Upload images
       </button>

@@ -47,7 +47,7 @@ export function PwaRegister() {
   return (
     <div
       role="status"
-      className="fixed bottom-24 left-1/2 z-50 flex w-[calc(100vw-24px)] max-w-sm -translate-x-1/2 items-center gap-3 rounded-full bg-ink-900 py-2 pl-5 pr-2 text-sm text-white shadow-[var(--shadow-soft)] md:bottom-6"
+      className="fixed bottom-24 left-1/2 z-50 flex w-[calc(100vw-24px)] max-w-sm -translate-x-1/2 items-center gap-3 rounded-full bg-ink-900 py-2 pl-5 pr-2 text-sm text-white dark:bg-ink-200 shadow-[var(--shadow-soft)] md:bottom-6"
     >
       <span className="flex-1">A new version of canvas.me is ready.</span>
       <button
@@ -55,7 +55,7 @@ export function PwaRegister() {
           userAsked.current = true;
           waiting.postMessage("SKIP_WAITING");
         }}
-        className="rounded-full bg-white px-4 py-1.5 font-semibold text-ink-900 hover:bg-accent-50 active:scale-[0.98]"
+        className="rounded-full bg-white px-4 py-1.5 font-semibold text-ink-900 hover:bg-accent-50 dark:bg-accent-fill dark:hover:bg-accent-fill-hover active:scale-[0.98]"
       >
         Reload
       </button>
