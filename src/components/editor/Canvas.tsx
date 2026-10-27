@@ -5,12 +5,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Group, Layer, Line, Rect, Stage, Transformer } from "react-konva";
 import { useRouter } from "next/navigation";
 import { ensureFonts, FONTS } from "@/lib/fonts";
-import type { Element } from "@/lib/model";
+import { pageSize, type Element } from "@/lib/model";
 import { downloadPercent } from "@/lib/bgRemove";
+import { scalePathFields } from "@/lib/vector";
 import { scaleMask } from "@/lib/mask";
 import { lineBetween, lineEnds, pageFonts } from "@/lib/render";
+import { scaleTextStyle } from "@/lib/richText";
 import { canOpen, openDesignFile } from "@/lib/importers";
-import { currentPage, normalize, useEditor } from "@/store/editor";
+import { buildRenderTree, effectiveFlags, expandToLeaves } from "@/lib/tree";
+import { currentPage, lockedIds, normalize, useEditor } from "@/store/editor";
 import { type BgJob, useView } from "@/store/view";
 import { useMediaQuery } from "../ui";
 import {
@@ -24,7 +27,7 @@ import {
   placeSticky,
 } from "./actions";
 import { CropEditor } from "./CropEditor";
-import { ElementNode } from "./ElementNode";
+import { LayerTree } from "./GroupNode";
 import { EraseEditor, finishErase } from "./EraseEditor";
 import { MaskEditor } from "./MaskEditor";
 import { TextEditor } from "./TextEditor";
@@ -143,13 +146,15 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
 
   // Fit page to viewport on load, resize of design, or explicit request.
   const hasSize = container.width > 0;
+  // The page's own size (an artboard) or the design's.
+  const { width: pageW, height: pageH } = pageSize(design, page);
   useEffect(() => {
     if (!hasSize) return;
     const { container: c } = useView.getState();
     const pad = c.width < 640 ? 32 : 96;
-    const s = Math.min((c.width - pad) / design.width, (c.height - pad) / design.height, 2);
-    useView.getState().set({ scale: s, x: (c.width - design.width * s) / 2, y: (c.height - design.height * s) / 2 });
-  }, [hasSize, fitTick, design.id, design.width, design.height]);
+    const s = Math.min((c.width - pad) / pageW, (c.height - pad) / pageH, 2);
+    useView.getState().set({ scale: s, x: (c.width - pageW * s) / 2, y: (c.height - pageH * s) / 2 });
+  }, [hasSize, fitTick, design.id, pageW, pageH]);
 
   // Load fonts used on the page, then re-measure text once they are available.
   const fontKey = page ? [...new Set(pageFonts(page))].sort().join("|") : "";
@@ -181,10 +186,26 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     else nodes.current.delete(id);
   }, []);
 
-  const byId = useMemo(() => new Map(page?.elements.map((e) => [e.id, e]) ?? []), [page]);
+  // The page tree to draw, and every element with its hidden and locked as its groups make them
+  // (a member of a locked group can't be moved), for selection and editing below.
+  const tree = useMemo(() => buildRenderTree(page?.elements ?? []), [page]);
+  const { byId, lockedSet } = useMemo(() => {
+    const flags = effectiveFlags(page?.elements ?? []);
+    const locked = new Set<string>();
+    const map = new Map<string, Element>();
+    for (const e of page?.elements ?? []) {
+      const f = flags.get(e.id)!;
+      if (f.locked) locked.add(e.id);
+      map.set(e.id, f.locked === e.locked && f.hidden === e.hidden ? e : { ...e, ...f });
+    }
+    return { byId: map, lockedSet: locked };
+  }, [page]);
 
   // Attach transformer to selected, editable nodes.
-  const selectedEls = selected.map((id) => byId.get(id)).filter((e): e is Element => !!e && !e.hidden);
+  // Adjustment layers are picked in the Layers panel and never moved on the canvas.
+  const selectedEls = selected
+    .map((id) => byId.get(id))
+    .filter((e): e is Element => !!e && !e.hidden && e.type !== "group" && e.type !== "adjustment");
   const single = selectedEls.length === 1 ? selectedEls[0] : null;
 
   // Adjusting the picture inside a mask lasts while that masked image alone is selected.
@@ -201,6 +222,13 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   // Erase keeps drawing its canvas until the new bitmap is stored, even once deselected.
   const eraseAny = eraseEditId ? byId.get(eraseEditId) : undefined;
   const eraseEl = eraseAny?.type === "image" && !eraseAny.mask ? eraseAny : null;
+  // A stable set, so the memoized tree nodes only re-render when it really changes.
+  const cropId = cropEl?.id;
+  const eraseId = eraseEl?.id;
+  const editingIds = useMemo(
+    () => new Set([editingTextId, cropId, eraseId].filter((id): id is string => !!id)),
+    [editingTextId, cropId, eraseId],
+  );
   const eraseLive = !!eraseEl && single?.id === eraseEl.id && !eraseEl.locked && tool === "select";
   useEffect(() => {
     if (eraseEditId && !eraseLive) void finishErase();
@@ -245,22 +273,30 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     e.cancelBubble = true;
     const st = useEditor.getState();
     const shift = "shiftKey" in e.evt && e.evt.shiftKey;
+    // Ctrl/Cmd-click picks the element itself, not its whole group.
+    const deep = "metaKey" in e.evt && (e.evt.metaKey || e.evt.ctrlKey);
+    const els = currentPage(st)?.elements ?? [];
     if (shift && st.selected.includes(el.id)) {
-      const members = el.groupId
-        ? (currentPage(st)?.elements.filter((o) => o.groupId === el.groupId).map((o) => o.id) ?? [el.id])
-        : [el.id];
-      st.select(st.selected.filter((id) => !members.includes(id)));
+      const members = deep ? [el.id] : expandToLeaves(els, [el.id]);
+      st.select(st.selected.filter((id) => !members.includes(id)), false, true);
     } else if (shift) {
-      st.select([el.id], true);
+      st.select([el.id], true, deep);
+    } else if (deep) {
+      st.select([el.id], false, true);
     } else if (!st.selected.includes(el.id)) {
       st.select([el.id]);
     }
   }, []);
 
   const onDblClick = useCallback((el: Element) => {
-    if (el.type === "text" && !el.locked) useEditor.getState().setEditingText(el.id);
+    const st = useEditor.getState();
+    const els = currentPage(st)?.elements ?? [];
+    if (lockedIds(els).has(el.id)) return;
+    // Double-click inside a group drills in to that element.
+    if (el.groupId) st.select([el.id], false, true);
+    if (el.type === "text") st.setEditingText(el.id);
     // Double-click adjusts the picture inside a mask, or crops an image without one.
-    if (el.type === "image" && !el.locked && !useView.getState().eraseEditId) {
+    if (el.type === "image" && !useView.getState().eraseEditId) {
       useView.getState().set(el.mask ? { maskEditId: el.id } : { cropEditId: el.id });
     }
   }, []);
@@ -287,12 +323,13 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
       setGuides([]);
       return;
     }
-    const d = st.design!;
+    const d = pageSize(st.design!, pg);
     const box = node.getClientRect({ relativeTo: pageNode, skipShadow: true });
     const xs = [0, d.width / 2, d.width];
     const ys = [0, d.height / 2, d.height];
     for (const o of pg.elements) {
-      if (o.id === node.id() || o.hidden) continue;
+      // A group's box is made of its members' (the dragged one too); adjustments cover the page.
+      if (o.id === node.id() || o.hidden || o.type === "group" || o.type === "adjustment") continue;
       xs.push(o.x, o.x + o.width / 2, o.x + o.width);
       ys.push(o.y, o.y + o.height / 2, o.y + o.height);
     }
@@ -335,7 +372,8 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     altCopy.current = false;
   }, []);
 
-  // Text: side anchors change wrap width live instead of stretching glyphs.
+  // Text: side anchors change wrap width live instead of stretching glyphs. Text with effects
+  // is one fx shape with no Text node, so its width goes through the store (one undo step).
   const onTransform = () => {
     const tr = trRef.current;
     const anchor = tr?.getActiveAnchor() ?? "";
@@ -343,14 +381,55 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     for (const n of tr.nodes()) {
       if (byId.get(n.id())?.type !== "text") continue;
       const t = (n as Konva.Group).findOne("Text") as Konva.Text | undefined;
-      if (!t) continue;
-      t.width(Math.max(20, t.width() * n.scaleX()));
+      if (t) {
+        t.width(Math.max(20, t.width() * n.scaleX()));
+      } else {
+        // The store, not this render's byId: it already holds the last frame's width.
+        const el = currentPage(useEditor.getState())?.elements.find((e) => e.id === n.id());
+        if (el) {
+          rewrapped.current = true;
+          useEditor.getState().update([el.id], { width: Math.max(20, el.width * n.scaleX()) }, { coalesce: rewrapKey.current });
+        }
+      }
       n.scaleX(1);
       n.scaleY(1);
     }
   };
 
+  // One undo step for a transform that re-wraps text with effects through the store.
+  const rewrapKey = useRef("");
+  const rewrapped = useRef(false);
+  const onTransformStart = () => {
+    const tr = trRef.current;
+    if (!tr) return;
+    rewrapKey.current = `text-width:${tr.nodes().map((n) => n.id()).join()}`;
+    rewrapped.current = false;
+    // Text re-wrapping at a side anchor renders as it goes, so only the rest stretch their last render.
+    const rewrap = (tr.getActiveAnchor() ?? "").startsWith("middle");
+    const ids = tr.nodes().flatMap((n) => (rewrap && byId.get(n.id())?.type === "text" ? [] : [n.id()]));
+    useView.getState().set({ transforming: ids });
+  };
+
+  // A transform that never ends (the selection changes under it, the canvas unmounts) must
+  // not leave elements stretching a stale render.
+  useEffect(() => {
+    if (useView.getState().transforming.length) useView.getState().set({ transforming: [] });
+  }, [selected]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !useView.getState().transforming.length) return;
+      trRef.current?.stopTransform();
+      useView.getState().set({ transforming: [] });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      useView.getState().set({ transforming: [] });
+    };
+  }, []);
+
   const onTransformEnd = () => {
+    useView.getState().set({ transforming: [] });
     const tr = trRef.current;
     if (!tr) return;
     const pic = maskNode.current;
@@ -376,8 +455,13 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
       const sy = n.scaleY();
       const p: Partial<Element> = { x: n.x(), y: n.y(), rotation: n.rotation() };
       if (el.type === "text") {
+        // Side anchors re-wrapped live (onTransform): the Text node, or the store for text with
+        // effects, holds the width. Corner anchors scale the width and font size together.
         const t = (n as Konva.Group).findOne("Text") as Konva.Text | undefined;
-        Object.assign(p, { width: Math.max(20, (t?.width() ?? el.width) * sx), fontSize: Math.max(1, el.fontSize * sy) });
+        const live = currentPage(useEditor.getState())?.elements.find((e) => e.id === el.id);
+        const w = t?.width() ?? (live?.type === "text" ? live.width : el.width);
+        // Style runs scale with it (sizes, spacing, shifts).
+        Object.assign(p, { width: Math.max(20, w * sx), ...(el.runs || el.paragraphs ? scaleTextStyle(el, sy) : { fontSize: Math.max(1, el.fontSize * sy) }) });
       } else if (el.type === "line") {
         p.width = Math.max(5, el.width * sx);
       } else if (el.type === "path") {
@@ -385,10 +469,13 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
           width: Math.max(1, el.width * sx),
           height: Math.max(1, el.height * sy),
           points: el.points.map((v, i) => (i % 2 ? v * sy : v * sx)),
+          ...scalePathFields(el, sx, sy),
         });
       } else {
         p.width = Math.max(5, el.width * sx);
         p.height = Math.max(5, el.height * sy);
+        // Vector paths and vector masks are in local units: they scale with the box (stroke widths don't).
+        Object.assign(p, scalePathFields(el, p.width / el.width, el.height > 0 ? p.height / el.height : 1));
         // A masked image's picture scales with its mask.
         if (el.type === "image" && el.mask) {
           Object.assign(p, { mask: scaleMask(el, p.width / el.width, p.height / el.height) });
@@ -398,7 +485,9 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
       n.scaleY(1);
       patches[el.id] = p;
     }
-    useEditor.getState().updateMany(patches);
+    // After a live re-wrap, fold the end into that undo step.
+    useEditor.getState().updateMany(patches, rewrapped.current ? { coalesce: rewrapKey.current } : undefined);
+    rewrapped.current = false;
   };
 
   // Stage: marquee selection, deselect on empty click, pan with space / middle mouse.
@@ -459,7 +548,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     if (!d) return;
     setDraft(null);
     if (d.kind === "draw") {
-      placePath(d.points, pen.color, penWidth(pen.size, design.width, design.height), PEN_OPACITY[pen.kind]);
+      placePath(d.points, pen.color, penWidth(pen.size, pageW, pageH), PEN_OPACITY[pen.kind]);
       return;
     }
     if (tool === "shape") {
@@ -511,8 +600,8 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
     const y1 = Math.max(marquee.y0, marquee.y1);
     setMarquee(null);
     if (x1 - x0 < 3 && y1 - y0 < 3) return;
-    const hits = (page?.elements ?? [])
-      .filter((el) => !el.hidden && el.x < x1 && el.x + el.width > x0 && el.y < y1 && el.y + el.height > y0)
+    const hits = [...byId.values()]
+      .filter((el) => !el.hidden && el.type !== "group" && el.type !== "adjustment" && el.x < x1 && el.x + el.width > x0 && el.y < y1 && el.y + el.height > y0)
       .map((el) => el.id);
     useEditor.getState().select(hits, e.evt.shiftKey);
   };
@@ -581,8 +670,8 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
   };
 
   if (!page) return null;
-  const W = design.width;
-  const H = design.height;
+  const W = pageW;
+  const H = pageH;
   const editingEl = editingTextId ? byId.get(editingTextId) : undefined;
   const bgEl = bgJob && !bgJob.error ? byId.get(bgJob.elId) : undefined;
 
@@ -642,21 +731,19 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
                 shadowOffsetY={4 / scale}
               />
               <Group clipX={0} clipY={0} clipWidth={W} clipHeight={H}>
-                {page.elements.map((el) => (
-                  <ElementNode
-                    key={el.id}
-                    el={el}
-                    editing={el.id === editingTextId || el.id === cropEl?.id || el.id === eraseEl?.id}
-                    fontsVersion={fontsVersion}
-                    interactive={tool === "select"}
-                    register={register}
-                    onPointerDown={onPointerDown}
-                    onDblClick={onDblClick}
-                    onDragStart={onDragStart}
-                    onDragMove={onDragMove}
-                    onDragEnd={onDragEnd}
-                  />
-                ))}
+                <LayerTree
+                  nodes={tree}
+                  editingIds={editingIds}
+                  lockedIds={lockedSet}
+                  fontsVersion={fontsVersion}
+                  interactive={tool === "select"}
+                  register={register}
+                  onPointerDown={onPointerDown}
+                  onDblClick={onDblClick}
+                  onDragStart={onDragStart}
+                  onDragMove={onDragMove}
+                  onDragEnd={onDragEnd}
+                />
               </Group>
               {maskEl && (
                 <MaskEditor
@@ -762,7 +849,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
               ref={trRef}
               rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
               rotationSnapTolerance={4}
-              keepRatio={single?.type !== "shape"}
+              keepRatio={single?.type !== "shape" && single?.type !== "vector"}
               rotateEnabled={single?.type !== "line"}
               enabledAnchors={anchors}
               borderStroke={ACCENT}
@@ -774,6 +861,7 @@ export default function Canvas({ onNotice }: { onNotice: (msg: string) => void }
               anchorStrokeWidth={1.5}
               rotateAnchorOffset={28}
               ignoreStroke
+              onTransformStart={onTransformStart}
               onTransform={onTransform}
               onTransformEnd={onTransformEnd}
               boundBoxFunc={(oldBox, newBox) =>

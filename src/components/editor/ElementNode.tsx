@@ -1,11 +1,15 @@
 "use client";
 
-import type Konva from "konva";
+import Konva from "konva";
 import { memo, useEffect, useState } from "react";
 import { Arrow, Ellipse, Group, Image, Line, Rect, Shape, Text } from "react-konva";
 import { getReadyImage, loadAssetImage } from "@/lib/images";
-import type { Element } from "@/lib/model";
+import { elementAsset, type Element } from "@/lib/model";
+import { noteImageReady, provideKonva } from "@/lib/fx/fxShape";
 import { elementNodes, groupAttrs } from "@/lib/render";
+
+// react-konva has loaded Konva already; the effects pipeline builds its off-screen nodes with it.
+provideKonva(Konva);
 
 const NODES = { Arrow, Ellipse, Image, Line, Rect, Shape, Text };
 
@@ -14,7 +18,11 @@ export function useAssetImage(id: string | undefined) {
   useEffect(() => {
     if (!id) return;
     let alive = true;
-    loadAssetImage(id).then((i) => alive && setImg(i ?? undefined));
+    loadAssetImage(id).then((i) => {
+      if (!alive) return;
+      if (i) noteImageReady();
+      setImg(i ?? undefined);
+    });
     return () => {
       alive = false;
     };
@@ -25,6 +33,8 @@ export function useAssetImage(id: string | undefined) {
 type Props = {
   el: Element;
   editing: boolean;
+  /** Locked itself or inside a locked group. */
+  locked?: boolean;
   /** Bumped when web fonts finish loading; remounts text so Konva re-measures it. */
   fontsVersion: number;
   /** False while a drawing tool is active: elements must not drag under the pen. */
@@ -40,6 +50,7 @@ type Props = {
 function ElementNodeImpl({
   el,
   editing,
+  locked,
   fontsVersion,
   interactive,
   register,
@@ -49,7 +60,7 @@ function ElementNodeImpl({
   onDragMove,
   onDragEnd,
 }: Props) {
-  const img = useAssetImage(el.type === "image" ? el.assetId : undefined);
+  const img = useAssetImage(elementAsset(el));
   const attrs = groupAttrs(el);
   return (
     <Group
@@ -57,7 +68,7 @@ function ElementNodeImpl({
       id={el.id}
       {...attrs}
       opacity={editing ? 0 : attrs.opacity}
-      draggable={interactive && !el.locked}
+      draggable={interactive && !el.locked && !locked}
       onMouseDown={(e) => onPointerDown(e, el)}
       onTouchStart={(e) => onPointerDown(e, el)}
       onDblClick={() => onDblClick(el)}
@@ -66,9 +77,11 @@ function ElementNodeImpl({
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
     >
-      {elementNodes(el, img).map((n, i) => {
+      {elementNodes(el, img, { fontsVersion, live: true }).map((n, i) => {
         const C = NODES[n.kind] as unknown as React.ComponentType<Record<string, unknown>>;
-        return <C key={n.kind === "Text" ? `${i}-${fontsVersion}` : i} {...n.attrs} perfectDrawEnabled={false} />;
+        // Text (and the fx shape that draws text with effects) remounts when fonts load, to re-measure.
+        const remount = n.kind === "Text" || (n.kind === "Shape" && el.type === "text");
+        return <C key={remount ? `${i}-${fontsVersion}` : i} {...n.attrs} perfectDrawEnabled={false} />;
       })}
     </Group>
   );

@@ -10,6 +10,7 @@ import {
   useUploadedFonts,
 } from "@/lib/customFonts";
 import { ensureFont, type Font, FONTS } from "@/lib/fonts";
+import { textFamilies } from "@/lib/richText";
 import { useEditor } from "@/store/editor";
 import { cx, Popover } from "../ui";
 
@@ -43,7 +44,7 @@ function pushRecent(family: string) {
 }
 
 /** Font dropdown for the text toolbar: search, script filter, document and recent fonts, live previews. */
-export function FontPicker({ value, onChange }: { value: string; onChange: (family: string) => void }) {
+export function FontPicker({ value, mixed, onChange }: { value: string; mixed?: boolean; onChange: (family: string) => void }) {
   return (
     <Popover
       title="Font"
@@ -51,7 +52,7 @@ export function FontPicker({ value, onChange }: { value: string; onChange: (fami
       trigger={
         <>
           <span className="truncate" style={{ fontFamily: `"${value}", system-ui` }}>
-            {value}
+            {mixed ? "Mixed" : value}
           </span>
           <ChevronDown size={14} className="shrink-0 text-ink-400" />
         </>
@@ -98,7 +99,7 @@ function FontList({ value, onPick }: { value: string; onPick: (family: string) =
 
   const docFonts = useMemo(() => {
     const used = new Set(
-      design?.pages.flatMap((p) => p.elements.flatMap((e) => (e.type === "text" ? [e.fontFamily] : []))),
+      design?.pages.flatMap((p) => p.elements.flatMap((e) => (e.type === "text" ? textFamilies(e) : []))),
     );
     return all.filter((f) => used.has(f.family));
   }, [design, all]);

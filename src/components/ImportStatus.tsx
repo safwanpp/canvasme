@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, Loader2, X } from "lucide-react";
-import { setReport, useImportJob } from "@/lib/importers/job";
+import { openNotes, setReport, useImportJob } from "@/lib/importers/job";
 
 /** Progress, the .ai/.pdf import choice, and (in the editor) what an import left out. */
 export function ImportStatus({ designId }: { designId?: string }) {
@@ -77,6 +77,17 @@ export function ImportStatus({ designId }: { designId?: string }) {
                   <li key={n}>{n}</li>
                 ))}
               </ul>
+              {!!report!.itemsCount && (
+                <button
+                  onClick={() => {
+                    openNotes(designId);
+                    setReport(null);
+                  }}
+                  className="mt-2 rounded-full px-3 py-1 text-xs font-medium text-accent-600 shadow-[var(--shadow-hairline)] hover:bg-ink-50"
+                >
+                  View details
+                </button>
+              )}
             </div>
             <button title="Dismiss" aria-label="Dismiss" onClick={() => setReport(null)} className="-mr-1 -mt-1 rounded-md p-1 hover:bg-ink-100">
               <X size={14} />

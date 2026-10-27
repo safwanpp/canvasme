@@ -1,13 +1,15 @@
 "use client";
 
 import { DEFAULT_FONT, ensureFont } from "@/lib/fonts";
+import { hasActiveEffects } from "@/lib/effects";
 import { primeAssetImage } from "@/lib/images";
-import { type Element, type IMAGE_MIMES, isAllowedImage, type ShapeKind, uid } from "@/lib/model";
+import { type Element, type IMAGE_MIMES, isAllowedImage, pageSize as sizeOf, type ShapeKind, uid } from "@/lib/model";
 import { removeBackground } from "@/lib/bgRemove";
 import { loadAsset, saveAsset } from "@/lib/storage";
 import { rotate } from "@/lib/mask";
+import { clipBase, makeGroup } from "@/lib/tree";
 import { canvasToBlob, lineBetween, renderElementsCanvas } from "@/lib/render";
-import { normalize, useEditor } from "@/store/editor";
+import { lockedIds, normalize, useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
 
 export const ASSET_DRAG_TYPE = "application/x-canvasme-asset";
@@ -22,8 +24,9 @@ const base = () => ({
 });
 
 function pageSize() {
-  const d = useEditor.getState().design!;
-  return { W: d.width, H: d.height };
+  const st = useEditor.getState();
+  const { width, height } = sizeOf(st.design!, st.design!.pages.find((p) => p.id === st.pageId));
+  return { W: width, H: height };
 }
 
 export type TextPreset = "heading" | "subheading" | "body";
@@ -88,7 +91,7 @@ type Box = { x: number; y: number; width: number; height: number };
 function place(els: Element[], select = true) {
   const st = useEditor.getState();
   st.mutate((d) => d.pages.find((p) => p.id === st.pageId)?.elements.push(...els));
-  if (select) useEditor.setState({ selected: els.map((e) => e.id) });
+  if (select) useEditor.setState({ selected: els.filter((e) => e.type !== "group").map((e) => e.id) });
 }
 
 /** Shape tool: a dragged box, or a default-size shape centred on a click. */
@@ -139,7 +142,7 @@ export function placeLine(p0: { x: number; y: number }, p1: { x: number; y: numb
   place([{ ...el, ...lineBetween(a, b, el.height) }]);
 }
 
-/** Sticky note: a rounded square with a text box, grouped. Returns the text's id for editing. */
+/** Sticky note: a rounded square with a text box, in a group. Returns the text's id for editing. */
 export async function placeSticky(at: { x: number; y: number }) {
   const { W, H } = pageSize();
   const s = Math.min(W, H) * 0.28;
@@ -179,7 +182,7 @@ export async function placeSticky(at: { x: number; y: number }) {
     lineHeight: 1.3,
     letterSpacing: 0,
   });
-  place([note, text]);
+  place([note, text, makeGroup(groupId, null, "Sticky note")]);
   return text.id;
 }
 
@@ -258,7 +261,8 @@ export function insertAsset(assetId: string, at?: { x: number; y: number }) {
   const d = st.design;
   const meta = d?.assets[assetId];
   if (!d || !meta) return;
-  st.addElement(imageElement(assetId, meta.width, meta.height, d.width, d.height, at));
+  const { W, H } = pageSize();
+  st.addElement(imageElement(assetId, meta.width, meta.height, W, H, at));
 }
 
 export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
@@ -288,8 +292,8 @@ export async function addImageFiles(files: File[], at?: { x: number; y: number }
       id,
       img.naturalWidth,
       img.naturalHeight,
-      d.width,
-      d.height,
+      pageSize().W,
+      pageSize().H,
       at && { x: at.x + i * 20, y: at.y + i * 20 },
     ),
   );
@@ -345,12 +349,27 @@ export async function removeImageBackground(elId: string) {
   }
 }
 
-/** Whether Rasterize would change anything: a plain, uncropped picture is already a bitmap. */
-export function canRasterize(els: Element[]) {
+/**
+ * Whether Rasterize would change anything: a plain, uncropped, unmasked picture is already a bitmap.
+ * `locked` holds the page's effectively locked ids (locked themselves or inside a locked group).
+ */
+export function canRasterize(els: Element[], locked: ReadonlySet<string>) {
   const shown = els.filter((e) => !e.hidden);
-  if (!shown.length || els.some((e) => e.locked)) return false;
+  // An adjustment alone has no pixels of its own to keep.
+  if (shown.every((e) => e.type === "adjustment")) return false;
+  if (!shown.length || els.some((e) => e.locked || locked.has(e.id))) return false;
   const e = shown[0];
-  return shown.length > 1 || e.type !== "image" || !!e.mask || !!e.crop || e.cornerRadius > 0;
+  return (
+    shown.length > 1 ||
+    e.type !== "image" ||
+    !!e.mask ||
+    !!e.vectorMask ||
+    !!e.crop ||
+    !!e.filters?.length ||
+    e.cornerRadius > 0 ||
+    hasActiveEffects(e.effects) ||
+    (e.fillOpacity ?? 1) < 1
+  );
 }
 
 /**
@@ -363,8 +382,16 @@ export async function rasterizeElements(ids: string[]) {
   if (!page) return;
   // Hidden elements are left where they are; they would render as nothing.
   const els = page.elements.filter((e) => ids.includes(e.id) && !e.hidden);
-  if (!canRasterize(els)) return;
-  const { canvas, box } = await renderElementsCanvas(els);
+  if (!canRasterize(els, lockedIds(page.elements))) return;
+  // Effects and fill opacity are drawn into the bitmap. One element's blend mode is not (on a
+  // transparent bitmap it would draw as normal): the image keeps it, so it still blends.
+  const single = els.length === 1;
+  // Several: a clipped one stays clipped in the bitmap only when its base is among them.
+  const picked = new Set(els.map((e) => e.id));
+  const toDraw = single
+    ? [{ ...els[0], blendMode: undefined, clipped: undefined }]
+    : els.map((e) => (e.clipped && !picked.has(clipBase(page.elements, e.id) ?? "") ? { ...e, clipped: undefined } : e));
+  const { canvas, box } = await renderElementsCanvas(toDraw);
   const blob = await canvasToBlob(canvas);
   const assetId = uid();
   const img = await primeAssetImage(assetId, blob);
@@ -387,6 +414,11 @@ export async function rasterizeElements(ids: string[]) {
     rotation: one?.rotation ?? 0,
     opacity: one?.opacity ?? 1,
     name: one?.name,
+    ...(one?.blendMode && { blendMode: one.blendMode }),
+    // One clipped element's bitmap stays in its clip stack.
+    ...(one?.clipped && { clipped: true }),
+    // Stays in the front-most original's group (if that group is left empty, the store drops it).
+    groupId: els[els.length - 1].groupId ?? null,
   };
   const gone = new Set(els.map((e) => e.id));
   let placed = false;
@@ -410,3 +442,9 @@ export async function rasterizeElements(ids: string[]) {
   });
   if (placed) useEditor.setState({ selected: [el.id] });
 }
+
+/**
+ * Alt/Option + Cmd/Ctrl + G: clip to the layer below, or release (Photoshop's shortcut). Matched
+ * by the physical key, since Option+G types "©" on macOS.
+ */
+export const isClipShortcut = (e: KeyboardEvent) => (e.metaKey || e.ctrlKey) && e.altKey && !e.shiftKey && e.code === "KeyG";

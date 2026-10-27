@@ -1,5 +1,5 @@
 import { zipSync } from "fflate";
-import type { Design } from "./model";
+import { pageSize, type Design } from "./model";
 import { canvasToBlob, renderPageCanvas } from "./render";
 import { downloadBlob, safeFilename } from "./workfile";
 
@@ -26,12 +26,21 @@ export async function exportImages(design: Design, format: ImageFormat, pageIds:
   downloadBlob(new Blob([zipSync(files, { level: 0 }) as BlobPart], { type: "application/zip" }), `${base}.zip`);
 }
 
+/** PDF page sizes, one per page (artboards keep their own). */
+export function pdfPages(design: Design) {
+  return design.pages.map((p) => {
+    const { width: w, height: h } = pageSize(design, p);
+    return { w, h, orientation: w > h ? ("landscape" as const) : ("portrait" as const) };
+  });
+}
+
 export async function exportPdf(design: Design) {
   const { jsPDF } = await import("jspdf");
-  const { width: w, height: h } = design;
-  const orientation = w > h ? "landscape" : "portrait";
-  const pdf = new jsPDF({ orientation, unit: "px", format: [w, h], hotfixes: ["px_scaling"] });
+  const sizes = pdfPages(design);
+  const first = sizes[0];
+  const pdf = new jsPDF({ orientation: first.orientation, unit: "px", format: [first.w, first.h], hotfixes: ["px_scaling"] });
   for (let i = 0; i < design.pages.length; i++) {
+    const { w, h, orientation } = sizes[i];
     if (i > 0) pdf.addPage([w, h], orientation);
     const canvas = await renderPageCanvas(design, design.pages[i], 2);
     pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, w, h);

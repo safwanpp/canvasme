@@ -1,8 +1,10 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { textFamilies } from "./richText";
 import { z } from "zod";
 import { importFonts, getUploadedFont } from "./customFonts";
 import { FONTS } from "./fonts";
 import { Design, FORMAT_VERSION, type FontMeta, pruneAssets, uid } from "./model";
+import { migrateDesign } from "./migrate";
 import { loadAsset, saveAsset, saveDesign, saveThumb } from "./storage";
 import { renderThumbnail } from "./render";
 
@@ -28,7 +30,7 @@ export async function exportWorkfile(full: Design): Promise<Blob> {
   };
   // Carry uploaded fonts the design uses, so it looks the same when opened in another browser.
   const fonts: Record<string, FontMeta> = {};
-  const used = new Set(design.pages.flatMap((p) => p.elements.flatMap((e) => (e.type === "text" ? [e.fontFamily] : []))));
+  const used = new Set(design.pages.flatMap((p) => p.elements.flatMap((e) => (e.type === "text" ? textFamilies(e) : []))));
   for (const family of used) {
     if (FONTS.some((f) => f.family === family)) continue;
     const font = await getUploadedFont(family);
@@ -76,7 +78,7 @@ export async function importWorkfile(file: File): Promise<Design> {
     throw new Error("This file was made with a newer version of canvas.me.");
   }
 
-  const parsed = Design.safeParse(designJson);
+  const parsed = Design.safeParse(migrateDesign(designJson));
   if (!parsed.success) throw new Error("The design inside this file is damaged.");
 
   // Give every imported asset a fresh id so a file can never overwrite

@@ -13,7 +13,7 @@ export const rotate = (x: number, y: number, deg: number) => {
  */
 export function maskImage(img: ImageElement, shape: ShapeElement, shapeAbove: boolean): ImageElement {
   const local = rotate(img.x - shape.x, img.y - shape.y, -shape.rotation);
-  return {
+  const out: ImageElement = {
     ...img,
     x: shape.x,
     y: shape.y,
@@ -26,6 +26,10 @@ export function maskImage(img: ImageElement, shape: ShapeElement, shapeAbove: bo
       shapeAbove,
     },
   };
+  // It takes the shape's place in the layer order, so also its place in a clip stack.
+  if (shape.clipped) out.clipped = true;
+  else delete out.clipped;
+  return out;
 }
 
 /** Split a masked image back into the shape (at the mask's current box) and the image. */
@@ -43,6 +47,9 @@ export function unmaskImage(el: ImageElement): { shape: ShapeElement; image: Ima
     locked: el.locked,
     hidden: el.hidden,
   };
+  // Both parts go back to the masked image's place, so into its clip stack too.
+  if (el.clipped) shape.clipped = true;
+  else delete shape.clipped;
   const at = rotate(m.image.x, m.image.y, el.rotation);
   const image: ImageElement = {
     ...el,

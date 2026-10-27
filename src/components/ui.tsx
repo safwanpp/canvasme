@@ -3,6 +3,8 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { twMerge } from "tailwind-merge";
+import type { ColorStop } from "@/lib/effects";
+import { addStop, moveStop, removeStop, stopToAdd } from "@/lib/effectEdit";
 
 export function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
@@ -14,6 +16,22 @@ export function useMediaQuery(query: string) {
     return () => mq.removeEventListener("change", onChange);
   }, [query]);
   return matches;
+}
+
+/**
+ * Whether the editor's window-level shortcuts should leave a keydown alone: a control already
+ * handled it, it came from inside a popover or dialog, or it is a key the focused control uses
+ * (any key on a slider or option; Space and Enter on a button or switch).
+ */
+export function skipsShortcuts(e: KeyboardEvent): boolean {
+  if (e.defaultPrevented) return true;
+  const t = e.target;
+  if (!(t instanceof Element)) return false;
+  if (t.closest('[role="dialog"], [data-popover]')) return true;
+  const role = t.getAttribute("role") ?? (t.tagName === "BUTTON" ? "button" : "");
+  if (role === "slider" || role === "option" || role === "listbox") return true;
+  if ((role === "button" || role === "switch") && (e.key === " " || e.key === "Enter")) return true;
+  return false;
 }
 
 export function cx(...c: (string | false | null | undefined)[]) {
@@ -135,6 +153,9 @@ export function Popover({
         createPortal(
           <div
             ref={panelRef}
+            role="dialog"
+            aria-label={title}
+            data-popover=""
             style={pos}
             className="fixed z-50 min-w-48 max-w-[calc(100vw-16px)] rounded-[var(--radius-input)] bg-surface p-3 shadow-[var(--shadow-hairline),var(--shadow-soft)]"
           >
@@ -180,6 +201,7 @@ export function Slider({
   step = 1,
   onChange,
   format = (v) => String(Math.round(v)),
+  mixed,
 }: {
   label: string;
   value: number;
@@ -188,12 +210,14 @@ export function Slider({
   step?: number;
   onChange: (v: number) => void;
   format?: (v: number) => string;
+  /** The selection disagrees; show "Mixed" until the first edit. */
+  mixed?: boolean;
 }) {
   return (
     <label className="block py-1 text-xs text-ink-600">
       <span className="flex justify-between">
         {label}
-        <span className="tabular-nums text-ink-900">{format(value)}</span>
+        <span className={cx("tabular-nums", mixed ? "text-ink-400" : "text-ink-900")}>{mixed ? "Mixed" : format(value)}</span>
       </span>
       <input
         type="range"
@@ -209,3 +233,240 @@ export function Slider({
 }
 
 export const Divider = () => <span className="mx-1 h-6 w-px bg-ink-200" />;
+
+export type SelectOption<T extends string> = { value: T; label: string };
+
+/** Labelled native select; `groups` render as <optgroup>s. */
+export function Select<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+  groups,
+  mixed,
+}: {
+  label: string;
+  value: T;
+  onChange: (v: T) => void;
+  options?: SelectOption<T>[];
+  groups?: { label: string; options: SelectOption<T>[] }[];
+  mixed?: boolean;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2 py-1 text-xs text-ink-600">
+      {label}
+      <select
+        value={mixed ? "" : value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className="h-7 min-w-0 max-w-[60%] rounded-md border border-ink-200 bg-surface px-1.5 text-xs text-ink-900 hover:border-ink-300"
+      >
+        {mixed && (
+          <option value="" disabled>
+            Mixed
+          </option>
+        )}
+        {options?.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+        {groups?.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** On/off switch. */
+export function Toggle({
+  label,
+  checked,
+  onChange,
+  hideLabel,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  hideLabel?: boolean;
+}) {
+  const sw = (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={hideLabel ? label : undefined}
+      title={hideLabel ? label : undefined}
+      onClick={() => onChange(!checked)}
+      className={cx(
+        "relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors duration-150",
+        checked ? "bg-accent-500" : "bg-ink-300",
+      )}
+    >
+      <span
+        className={cx(
+          "h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-150",
+          checked ? "translate-x-3.5" : "translate-x-0.5",
+        )}
+      />
+    </button>
+  );
+  if (hideLabel) return sw;
+  return (
+    <label className="flex items-center justify-between gap-2 py-1 text-xs text-ink-600">
+      {label}
+      {sw}
+    </label>
+  );
+}
+
+/**
+ * Gradient colour stops: click the bar (or "Add stop") to add a stop, drag a handle (or use the
+ * arrow keys) to move it, Delete to remove it. The selected stop's colour is edited below.
+ */
+export function GradientInput({
+  stops,
+  onChange,
+  label = "Gradient",
+}: {
+  stops: ColorStop[];
+  onChange: (stops: ColorStop[]) => void;
+  label?: string;
+}) {
+  const [sel, setSel] = useState(0);
+  const barRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ index: number } | null>(null);
+  // Handles are keyed by position, so after a keyboard edit re-sorts the stops, focus moves to
+  // the handle now showing the edited stop.
+  const handleRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const focusTo = useRef<number | null>(null);
+  useEffect(() => {
+    if (focusTo.current === null) return;
+    handleRefs.current[focusTo.current]?.focus();
+    focusTo.current = null;
+  });
+  const cur = Math.min(sel, stops.length - 1);
+  const sorted = [...stops].sort((a, b) => a.offset - b.offset);
+  const css = `linear-gradient(to right, ${sorted.map((s) => `${s.color} ${s.offset * 100}%`).join(", ")})`;
+  const offsetAt = (clientX: number) => {
+    const r = barRef.current!.getBoundingClientRect();
+    return r.width ? (clientX - r.left) / r.width : 0;
+  };
+  // Edits re-sort the list; the edited stop is the one new object in it.
+  const fresh = (next: ColorStop[]) => next.findIndex((s) => !stops.includes(s));
+  const add = (offset: number) => {
+    const next = addStop(stops, offset);
+    if (next === stops) return;
+    onChange(next);
+    setSel(Math.max(0, fresh(next)));
+  };
+  const move = (index: number, offset: number) => {
+    const next = moveStop(stops, index, offset);
+    const ni = Math.max(0, fresh(next));
+    onChange(next);
+    setSel(ni);
+    return ni;
+  };
+  return (
+    <div className="py-1 text-xs text-ink-600">
+      <span className="mb-1 block">{label}</span>
+      <div className="relative mx-2">
+        <div
+          ref={barRef}
+          role="presentation"
+          className="h-5 cursor-copy rounded-md shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]"
+          style={{ background: css }}
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) add(offsetAt(e.clientX));
+          }}
+        />
+        {stops.map((s, i) => (
+          <button
+            key={i}
+            ref={(el) => {
+              handleRefs.current[i] = el;
+            }}
+            type="button"
+            aria-label={`Stop ${i + 1} at ${Math.round(s.offset * 100)}%`}
+            aria-pressed={i === cur}
+            className={cx(
+              "absolute top-[-3px] h-[26px] w-3 -translate-x-1/2 cursor-ew-resize touch-none rounded-[4px] border-2 shadow-sm",
+              i === cur ? "border-accent-500" : "border-white",
+            )}
+            style={{ left: `${s.offset * 100}%`, background: s.color }}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setSel(i);
+              drag.current = { index: i };
+            }}
+            onPointerMove={(e) => {
+              const d = drag.current;
+              if (!d) return;
+              d.index = move(d.index, offsetAt(e.clientX));
+            }}
+            onPointerUp={() => (drag.current = null)}
+            onPointerCancel={() => (drag.current = null)}
+            onKeyDown={(e) => {
+              const step = e.shiftKey ? 0.1 : 0.01;
+              const arrow = e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown";
+              const del = e.key === "Delete" || e.key === "Backspace";
+              // These keys belong to the handle: keep them from the editor's shortcuts (which
+              // would delete or nudge the selected elements). Escape still bubbles to close the popover.
+              if (arrow || del) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+              if (arrow) {
+                const ni = move(i, s.offset + (e.key === "ArrowLeft" || e.key === "ArrowDown" ? -step : step));
+                if (ni !== i) focusTo.current = ni;
+              } else if (del && stops.length > 2) {
+                onChange(removeStop(stops, i));
+                setSel(Math.max(0, i - 1));
+                focusTo.current = Math.max(0, i - 1);
+              }
+            }}
+          />
+        ))}
+      </div>
+      <div className="mt-2 flex items-center justify-between">
+        <span className="tabular-nums">
+          Stop {cur + 1} · {Math.round((stops[cur]?.offset ?? 0) * 100)}%
+        </span>
+        <span className="flex items-center gap-0.5">
+          <ColorInput
+            title={`Stop ${cur + 1} color`}
+            value={stops[cur]?.color ?? "#000000"}
+            onChange={(v) => onChange(stops.map((s, i) => (i === cur ? { ...s, color: v } : s)))}
+          />
+          <button
+            type="button"
+            aria-label="Add stop"
+            title="Add stop"
+            disabled={stops.length >= 32}
+            onClick={() => add(stopToAdd(stops))}
+            className="rounded-md px-1.5 py-1 text-ink-600 hover:bg-ink-100 disabled:opacity-35"
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            disabled={stops.length <= 2}
+            onClick={() => {
+              onChange(removeStop(stops, cur));
+              setSel(Math.max(0, cur - 1));
+            }}
+            className="rounded-md px-1.5 py-1 text-ink-600 hover:bg-ink-100 disabled:opacity-35"
+          >
+            Remove
+          </button>
+        </span>
+      </div>
+    </div>
+  );
+}
