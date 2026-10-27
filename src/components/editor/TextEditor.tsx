@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { TextElement } from "@/lib/model";
+import { remapTextRuns } from "@/lib/richText";
 import { useEditor } from "@/store/editor";
 
 /** DOM textarea laid over a text element while it is being edited. */
@@ -35,7 +36,11 @@ export function TextEditor({ el, scale, origin }: { el: TextElement; scale: numb
       ref={ref}
       value={el.text}
       spellCheck={false}
-      onChange={(e) => useEditor.getState().update([id], { text: e.target.value }, { coalesce: `text:${id}` })}
+      onChange={(e) => {
+        const text = e.target.value;
+        // Style runs follow the edit (inserted text takes the style before it).
+        useEditor.getState().update([id], (cur) => (cur.type === "text" ? { text, ...remapTextRuns(cur, text) } : {}), { coalesce: `text:${id}` });
+      }}
       onBlur={finish}
       onKeyDown={(e) => {
         e.stopPropagation();

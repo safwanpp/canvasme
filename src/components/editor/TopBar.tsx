@@ -132,12 +132,24 @@ export function TopBar({ onNotice }: { onNotice: (msg: string) => void }) {
               />
               <MenuItem
                 label="PSD: this page"
-                hint="Photoshop file, one layer per element. Text is rasterized"
+                hint="Photoshop file, one layer per element, with editable text and layer styles"
                 onClick={item(async () => {
                   const { exportPsd } = await import("@/lib/importers/psdExport");
-                  await exportPsd(design(), pageId());
+                  const notes = await exportPsd(design(), pageId(), "current");
+                  if (notes.length) onNotice(notes.join(" "));
                 })}
               />
+              {design().pages.length > 1 && (
+                <MenuItem
+                  label="PSD: all pages as artboards"
+                  hint="One Photoshop file, each page an artboard at its own size"
+                  onClick={item(async () => {
+                    const { exportPsd } = await import("@/lib/importers/psdExport");
+                    const notes = await exportPsd(design(), pageId(), "artboards");
+                    if (notes.length) onNotice(notes.join(" "));
+                  })}
+                />
+              )}
               <div className="my-1 h-px bg-ink-100" />
               <MenuItem
                 label="Work file (.canvasme)"

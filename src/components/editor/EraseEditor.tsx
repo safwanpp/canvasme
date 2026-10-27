@@ -6,7 +6,7 @@ import { Circle, Group, Image as KonvaImage, Rect } from "react-konva";
 import { loadAssetImage, primeAssetImage } from "@/lib/images";
 import { rotate } from "@/lib/mask";
 import { type ImageElement, uid } from "@/lib/model";
-import { canvasToBlob, cropPixels, elementNodes, groupAttrs } from "@/lib/render";
+import { baseNodes, canvasToBlob, cropPixels, groupAttrs } from "@/lib/render";
 import { saveAsset } from "@/lib/storage";
 import { useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
@@ -255,7 +255,7 @@ export function EraseEditor({ el, scale, toPage }: Props) {
     <>
       <Group ref={groupRef} {...groupAttrs(el)}>
         {canvas &&
-          elementNodes(el, canvas).map((n, i) =>
+          baseNodes(el, canvas).map((n, i) =>
             n.kind === "Image" ? <KonvaImage key={i} {...(n.attrs as Konva.ImageConfig)} listening={false} /> : null,
           )}
         {/* Where a stroke can start: the image's box. */}

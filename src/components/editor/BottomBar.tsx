@@ -1,5 +1,6 @@
 "use client";
 
+import { pageRatio } from "@/lib/model";
 import { ChevronLeft, ChevronRight, Copy, Maximize, Plus, Trash2 } from "lucide-react";
 import { useEditor } from "@/store/editor";
 import { MAX_ZOOM, MIN_ZOOM, useView } from "@/store/view";
@@ -12,7 +13,6 @@ export function BottomBar() {
   const st = useEditor.getState();
   if (!design) return null;
   const index = design.pages.findIndex((p) => p.id === pageId);
-  const ratio = design.width / design.height;
 
   return (
     <footer className="hidden h-20 shrink-0 items-center gap-3 border-t border-ink-200 bg-surface px-3 md:flex">
@@ -26,7 +26,7 @@ export function BottomBar() {
               "relative h-12 shrink-0 rounded-md border-2 text-xs font-medium text-ink-500 transition-colors",
               p.id === pageId ? "border-accent-500" : "border-ink-200 hover:border-ink-300",
             )}
-            style={{ aspectRatio: ratio, backgroundColor: p.background, maxWidth: 96 }}
+            style={{ aspectRatio: pageRatio(design, p), backgroundColor: p.background, maxWidth: 96 }}
           >
             <span className="absolute bottom-0.5 left-1 rounded bg-white/80 px-1">{i + 1}</span>
           </button>

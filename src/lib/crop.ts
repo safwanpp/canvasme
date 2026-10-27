@@ -1,6 +1,7 @@
 import type { ImageElement } from "./model";
 import { rotate } from "./mask";
 import { FULL_CROP } from "./render";
+import { translateSubpaths } from "./vector";
 
 export type Box = { x: number; y: number; width: number; height: number };
 
@@ -18,13 +19,25 @@ export function fullPicture(el: ImageElement): Box {
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
+ * A crop patch plus the vector mask moved with the picture: the mask is in the element's local
+ * units, and those move whenever the box or the picture does.
+ */
+function keepMask(el: ImageElement, patch: Partial<ImageElement>): Partial<ImageElement> {
+  if (!el.vectorMask) return patch;
+  const before = fullPicture(el);
+  const after = fullPicture({ ...el, ...patch });
+  const m = el.vectorMask;
+  return { ...patch, vectorMask: { ...m, subpaths: translateSubpaths(m.subpaths, after.x - before.x, after.y - before.y) } };
+}
+
+/**
  * Move the crop box to `box` (local coordinates of `el`, inside the picture) with the
  * picture fixed on the page. The element takes the new box.
  */
 export function cropTo(el: ImageElement, box: Box): Partial<ImageElement> {
   const pic = fullPicture(el);
   const at = rotate(box.x, box.y, el.rotation);
-  return {
+  return keepMask(el, {
     x: el.x + at.x,
     y: el.y + at.y,
     width: box.width,
@@ -35,7 +48,7 @@ export function cropTo(el: ImageElement, box: Box): Partial<ImageElement> {
       width: Math.min(1, box.width / pic.width),
       height: Math.min(1, box.height / pic.height),
     },
-  };
+  });
 }
 
 /** Slide the picture under a fixed crop box so its top-left sits at (px, py), kept covering the box. */
@@ -44,12 +57,12 @@ export function slidePicture(el: ImageElement, px: number, py: number): Partial<
   const c = el.crop ?? FULL_CROP;
   const x = Math.min(0, Math.max(el.width - pic.width, px));
   const y = Math.min(0, Math.max(el.height - pic.height, py));
-  return { crop: { ...c, x: clamp01(-x / pic.width), y: clamp01(-y / pic.height) } };
+  return keepMask(el, { crop: { ...c, x: clamp01(-x / pic.width), y: clamp01(-y / pic.height) } });
 }
 
 /** Show the whole picture again, at the size and place it has under the crop. */
 export function uncrop(el: ImageElement): Partial<ImageElement> {
   const pic = fullPicture(el);
   const at = rotate(pic.x, pic.y, el.rotation);
-  return { x: el.x + at.x, y: el.y + at.y, width: pic.width, height: pic.height, crop: undefined };
+  return keepMask(el, { x: el.x + at.x, y: el.y + at.y, width: pic.width, height: pic.height, crop: undefined });
 }

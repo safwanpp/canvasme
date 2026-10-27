@@ -5,9 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Element, pruneAssets } from "@/lib/model";
 import { renderThumbnail } from "@/lib/render";
 import { collectOrphanAssets, loadDesign, requestPersistence, saveDesign, saveThumb } from "@/lib/storage";
-import { currentPage, useEditor } from "@/store/editor";
+import { coveredElements, effectiveFlags } from "@/lib/tree";
+import { currentPage, lockedIds, useEditor } from "@/store/editor";
 import { type Tool, useView } from "@/store/view";
-import { addImageFiles, insertText } from "./actions";
+import { addImageFiles, insertText, isClipShortcut } from "./actions";
 import { finishErase } from "./EraseEditor";
 import { BottomBar } from "./BottomBar";
 import Canvas from "./Canvas";
@@ -16,6 +17,7 @@ import { SidePanel } from "./SidePanel";
 import { setTool } from "./ToolStrip";
 import { TopBar } from "./TopBar";
 import { ImportStatus } from "../ImportStatus";
+import { skipsShortcuts } from "../ui";
 
 const SAVE_DELAY_MS = 500;
 const THUMB_DELAY_MS = 2000;
@@ -86,7 +88,7 @@ function useShortcuts(onNotice: (m: string) => void) {
     const onKey = (e: KeyboardEvent) => {
       const st = useEditor.getState();
       const view = useView.getState();
-      if (isTyping(e.target)) return;
+      if (isTyping(e.target) || skipsShortcuts(e)) return;
       if (e.code === "Space") {
         if (!view.spaceDown) view.set({ spaceDown: true });
         e.preventDefault();
@@ -117,14 +119,20 @@ function useShortcuts(onNotice: (m: string) => void) {
       } else if (mod && (key === "c" || key === "x")) {
         if (!selEls.length) return;
         e.preventDefault();
-        clipboard = structuredClone(selEls);
+        // Wholly selected groups come along as groups.
+        clipboard = structuredClone(coveredElements(page?.elements ?? [], sel));
         if (key === "x") st.remove(sel);
       } else if (mod && key === "d") {
         e.preventDefault();
         st.duplicate(sel);
       } else if (mod && key === "a") {
         e.preventDefault();
-        st.select(page?.elements.filter((el) => !el.locked && !el.hidden).map((el) => el.id) ?? []);
+        const flags = effectiveFlags(page?.elements ?? []);
+        const all = page?.elements.filter((el) => el.type !== "group" && !flags.get(el.id)?.locked && !flags.get(el.id)?.hidden) ?? [];
+        st.select(all.map((el) => el.id), false, true);
+      } else if (isClipShortcut(e)) {
+        e.preventDefault();
+        st.toggleClip(sel);
       } else if (mod && key === "g") {
         e.preventDefault();
         if (e.shiftKey) st.ungroup(sel);
@@ -159,7 +167,8 @@ function useShortcuts(onNotice: (m: string) => void) {
         const step = e.shiftKey ? 10 : 1;
         const dx = key === "arrowleft" ? -step : key === "arrowright" ? step : 0;
         const dy = key === "arrowup" ? -step : key === "arrowdown" ? step : 0;
-        const movable = selEls.filter((el) => !el.locked).map((el) => el.id);
+        const locked = lockedIds(page?.elements ?? []);
+        const movable = selEls.filter((el) => !locked.has(el.id)).map((el) => el.id);
         st.update(movable, (el) => ({ x: el.x + dx, y: el.y + dy }), { coalesce: "nudge" });
       } else if (key === "t" && !mod && !e.altKey) {
         void insertText("body");

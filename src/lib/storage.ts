@@ -1,4 +1,5 @@
 import { createStore, del, get, keys, set, values } from "idb-keyval";
+import { migrateDesign } from "./migrate";
 import type { Design, FontMeta } from "./model";
 
 // Separate IndexedDB databases: idb-keyval supports one object store per DB.
@@ -27,9 +28,10 @@ export async function requestPersistence() {
 }
 
 export const saveDesign = (d: Design) => set(d.id, d, db().designs);
-export const loadDesign = (id: string) => get<Design>(id, db().designs);
+// Stored designs skip the zod parse, so bring older formats up to date on the way out.
+export const loadDesign = async (id: string) => migrateDesign(await get<Design>(id, db().designs)) as Design | undefined;
 export const listDesigns = async () =>
-  (await values<Design>(db().designs)).sort((a, b) => b.updatedAt - a.updatedAt);
+  (await values<Design>(db().designs)).map((d) => migrateDesign(d) as Design).sort((a, b) => b.updatedAt - a.updatedAt);
 
 export async function deleteDesign(id: string) {
   await del(id, db().designs);

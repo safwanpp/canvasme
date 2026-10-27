@@ -37,6 +37,8 @@ type ViewState = {
   /** Image being erased (Erase in the toolbar). */
   eraseEditId: string | null;
   eraseBrush: EraseBrush;
+  /** Ids of the elements the transformer is resizing: their effect renders stretch their last frame until it ends. */
+  transforming: string[];
   set: (p: Partial<Omit<ViewState, "set" | "zoomAt" | "zoomTo" | "requestFit">>) => void;
   /** Zoom keeping the given screen point fixed. */
   zoomAt: (scale: number, px: number, py: number) => void;
@@ -63,6 +65,7 @@ export const useView = create<ViewState>((set, get) => ({
   cropEditId: null,
   eraseEditId: null,
   eraseBrush: { size: 40, softness: 0.3, restore: false },
+  transforming: [],
   set: (p) => set(p),
   zoomAt: (next, px, py) => {
     const { scale, x, y } = get();

@@ -1,6 +1,8 @@
 "use client";
 
+import { pageRatio } from "@/lib/model";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Circle,
@@ -8,8 +10,11 @@ import {
   Eye,
   EyeOff,
   Files,
+  CornerLeftDown,
+  Folder,
   Hexagon,
   Image as ImageIcon,
+  Info,
   Layers,
   Lock,
   Maximize,
@@ -25,13 +30,18 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadAssetImage } from "@/lib/images";
+import { closeNotes, notesShownFor, openNotes, useImportJob } from "@/lib/importers/job";
 import type { Element } from "@/lib/model";
+import { buildRenderTree, clipHiddenIds, clipStacks, effectiveFlags, type RenderNode } from "@/lib/tree";
 import { currentPage, useEditor } from "@/store/editor";
 import { useView } from "@/store/view";
 import { cx, useMediaQuery } from "../ui";
+import { ADJUSTMENT_LABELS } from "@/lib/adjustments";
+import { AddAdjustmentMenu, AdjustmentIcon } from "./AdjustmentPanel";
 import { ASSET_DRAG_TYPE, addImageFiles, insertAsset, insertLine, insertShape, insertText } from "./actions";
+import { ImportNotes } from "./ImportNotes";
 import { setTool, ToolStrip } from "./ToolStrip";
 
 type Tab = "text" | "elements" | "uploads" | "tools" | "layers" | "pages";
@@ -53,6 +63,19 @@ export function SidePanel({ onNotice }: { onNotice: (msg: string) => void }) {
   const mobile = useMediaQuery("(max-width: 767px)");
   const [tab, setTab] = useState<Tab | null>(null);
   const selected = useEditor((s) => s.selected);
+  const notesRequest = useImportJob((s) => s.notesRequest);
+  const designId = useEditor((s) => s.design?.id);
+
+  // "View details" on an import toast opens the notes, which live in the Layers tab. Every
+  // request switches tabs (the first render's value is not a request).
+  const seenRequest = useRef(notesRequest);
+  useEffect(() => {
+    if (notesRequest === seenRequest.current) return;
+    seenRequest.current = notesRequest;
+    setTab("layers");
+  }, [notesRequest]);
+  // Notes belong to one design: close them when another loads or the editor goes away.
+  useEffect(() => () => closeNotes(), [designId]);
 
   // Desktop starts with the Text panel open; phones start with the canvas clear.
   useEffect(() => {
@@ -138,7 +161,6 @@ function PagesTab() {
   const st = useEditor.getState();
   if (!design) return null;
   const index = design.pages.findIndex((p) => p.id === pageId);
-  const ratio = design.width / design.height;
   const action = "flex items-center gap-2 rounded-full px-3 py-2 text-sm text-ink-700 shadow-[var(--shadow-hairline)] disabled:opacity-35";
   return (
     <>
@@ -152,7 +174,7 @@ function PagesTab() {
               "relative w-full rounded-md border-2",
               p.id === pageId ? "border-accent-500" : "border-ink-200",
             )}
-            style={{ aspectRatio: ratio, backgroundColor: p.background }}
+            style={{ aspectRatio: pageRatio(design, p), backgroundColor: p.background }}
           >
             <span className="absolute bottom-1 left-1 rounded bg-white/85 px-1 font-mono text-[11px] text-ink-600">
               {i + 1}
@@ -162,7 +184,7 @@ function PagesTab() {
         <button
           onClick={st.addPage}
           className="flex w-full items-center justify-center rounded-md border-2 border-dashed border-ink-200 text-ink-500"
-          style={{ aspectRatio: ratio }}
+          style={{ aspectRatio: pageRatio(design, design.pages[index]) }}
           title="Add page"
         >
           <Plus size={20} />
@@ -343,44 +365,194 @@ function label(el: Element) {
   if (el.type === "shape") return el.shape[0].toUpperCase() + el.shape.slice(1);
   if (el.type === "line") return el.arrowEnd ? "Arrow" : "Line";
   if (el.type === "path") return "Drawing";
+  if (el.type === "group") return "Group";
+  if (el.type === "vector") return "Shape";
+  if (el.type === "adjustment") return ADJUSTMENT_LABELS[el.adjustment.type];
   if (el.rasterized) return "Rasterized";
   return el.mask ? "Masked image" : "Image";
+}
+
+type DropWhere = "above" | "below" | "into";
+
+/**
+ * The Layers list: the page tree front-most first, folded groups' members left out, plus each
+ * element's effective visibility and lock, each parent's children (bottom first) and each
+ * group's leaves.
+ */
+function layerRows(els: Element[]) {
+  const rows: { el: Element; depth: number; clipBase: boolean }[] = [];
+  const siblings = new Map<string | null, string[]>();
+  const leaves = new Map<string, string[]>();
+  const walk = (nodes: RenderNode[], depth: number, parent: string | null): string[] => {
+    siblings.set(parent, nodes.map((n) => n.el.id));
+    // Layers with clipped layers above them (Photoshop underlines their names).
+    const bases = new Set(clipStacks(nodes).flatMap((st) => (st.clipped.length ? [st.node.el.id] : [])));
+    const mine: string[] = [];
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const n = nodes[i];
+      rows.push({ el: n.el, depth, clipBase: bases.has(n.el.id) });
+      if (n.children) {
+        const at = rows.length;
+        const sub = walk(n.children, depth + 1, n.el.id);
+        leaves.set(n.el.id, sub);
+        mine.push(...sub);
+        if (n.el.type === "group" && n.el.collapsed) rows.length = at;
+      } else mine.push(n.el.id);
+    }
+    return mine;
+  };
+  walk(buildRenderTree(els), 0, null);
+  return { rows, siblings, leaves, flags: effectiveFlags(els), clipHidden: clipHiddenIds(els) };
 }
 
 function LayersTab() {
   const page = useEditor(currentPage);
   const selected = useEditor((s) => s.selected);
+  const report = useEditor((s) => s.design?.importReport);
+  const designId = useEditor((s) => s.design?.id);
+  const notesOpen = useImportJob((s) => notesShownFor(s, designId));
   const [dragId, setDragId] = useState<string | null>(null);
-  if (!page) return null;
+  const [drop, setDrop] = useState<{ id: string; where: DropWhere } | null>(null);
+  const tree = useMemo(() => (page ? layerRows(page.elements) : null), [page]);
+  if (!page || !tree) return null;
+  // Import notes per element, shown as a badge on its row.
+  const issues = new Map<string, string[]>();
+  for (const item of report?.items ?? []) {
+    if (item.elementId) issues.set(item.elementId, [...(issues.get(item.elementId) ?? []), item.message]);
+  }
   const st = useEditor.getState();
-  const n = page.elements.length;
-  // Top of list = front-most element.
-  const rows = [...page.elements].reverse();
+  const { rows, flags, siblings, leaves, clipHidden } = tree;
+  const sel = new Set(selected);
+  const isSelected = (el: Element) =>
+    el.type === "group" ? (leaves.get(el.id)?.length ?? 0) > 0 && leaves.get(el.id)!.every((id) => sel.has(id)) : sel.has(el.id);
+
+  // Where a drop on a row puts the dragged layer: in front of it, behind it, or into a group (on top).
+  const whereOf = (e: React.DragEvent, el: Element): DropWhere => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const f = (e.clientY - r.top) / r.height;
+    if (el.type === "group") return f < 0.25 ? "above" : f > 0.75 ? "below" : "into";
+    return f < 0.5 ? "above" : "below";
+  };
+  // Nothing moves into, out of or within a locked group (the store refuses it too).
+  const canDrop = (target: Element, where: DropWhere) => {
+    const parent = where === "into" ? target.id : target.groupId;
+    return !!dragId && !flags.get(dragId)?.locked && !(parent && flags.get(parent)?.locked);
+  };
+  const onDrop = (target: Element, where: DropWhere) => {
+    if (!dragId || dragId === target.id || !canDrop(target, where)) return;
+    const dragged = page.elements.find((e) => e.id === dragId);
+    if (!dragged) return;
+    const parent = where === "into" ? target.id : target.groupId;
+    const list = (siblings.get(parent) ?? []).filter((id) => id !== dragId);
+    const index = where === "into" ? list.length : list.indexOf(target.id) + (where === "above" ? 1 : 0);
+    st.reparent(dragId, parent, index);
+  };
+
   return (
     <>
-      <Heading>Layers</Heading>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-ink-900">Layers</h2>
+        <AddAdjustmentMenu />
+      </div>
       {!rows.length && <p className="mt-6 text-center text-sm text-ink-400">This page is empty</p>}
-      <ul className="space-y-1">
-        {rows.map((el, i) => (
+      <ul className="space-y-0.5" role="tree" aria-label="Layers">
+        {rows.map(({ el, depth, clipBase }) => (
           <li
             key={el.id}
+            role="treeitem"
+            aria-level={depth + 1}
+            aria-selected={isSelected(el)}
+            aria-expanded={el.type === "group" ? !el.collapsed : undefined}
             draggable
-            onDragStart={() => setDragId(el.id)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
-              if (dragId && dragId !== el.id) st.moveTo(dragId, n - 1 - i);
-              setDragId(null);
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              setDragId(el.id);
             }}
-            onClick={(e) => st.select([el.id], e.shiftKey)}
+            onDragEnd={() => {
+              setDragId(null);
+              setDrop(null);
+            }}
+            onDragOver={(e) => {
+              if (!dragId) return;
+              const where = whereOf(e, el);
+              if (!canDrop(el, where)) {
+                if (drop?.id === el.id) setDrop(null);
+                return;
+              }
+              e.preventDefault();
+              if (drop?.id !== el.id || drop.where !== where) setDrop({ id: el.id, where });
+            }}
+            onDragLeave={() => setDrop((d) => (d?.id === el.id ? null : d))}
+            onDrop={(e) => {
+              e.preventDefault();
+              onDrop(el, whereOf(e, el));
+              setDragId(null);
+              setDrop(null);
+            }}
+            onClick={(e) => st.select([el.id], e.shiftKey, true)}
+            style={{ paddingLeft: 8 + depth * 14 + (el.clipped ? 14 : 0) }}
             className={cx(
-              "group flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1.5 text-sm",
-              selected.includes(el.id) ? "border-accent-400 bg-accent-50" : "border-transparent hover:bg-ink-50",
-              el.hidden && "opacity-50",
+              "group relative flex cursor-pointer items-center gap-1.5 rounded-lg border py-1.5 pr-2 text-sm",
+              isSelected(el) ? "border-accent-400 bg-accent-50" : "border-transparent hover:bg-ink-50",
+              (flags.get(el.id)?.hidden || clipHidden.has(el.id)) && "opacity-50",
+              drop?.id === el.id && drop.where === "into" && "ring-2 ring-accent-400",
+              dragId === el.id && "opacity-40",
             )}
           >
-            <span className="w-4 text-xs text-ink-400">{n - i}</span>
-            <span className="flex-1 truncate text-ink-800">{label(el)}</span>
-            {el.groupId && <span className="rounded bg-ink-100 px-1 text-[10px] text-ink-500">group</span>}
+            {drop?.id === el.id && drop.where !== "into" && (
+              <span
+                aria-hidden
+                className={cx("pointer-events-none absolute inset-x-1 h-0.5 rounded bg-accent-500", drop.where === "above" ? "-top-px" : "-bottom-px")}
+              />
+            )}
+            {el.type === "group" ? (
+              <button
+                title={el.collapsed ? "Expand group" : "Collapse group"}
+                aria-label={el.collapsed ? "Expand group" : "Collapse group"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  st.update([el.id], { collapsed: el.collapsed ? undefined : true }, { history: false });
+                }}
+                className="rounded p-0.5 text-ink-500 hover:bg-ink-100"
+              >
+                {el.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+              </button>
+            ) : (
+              <span className="w-[18px]" />
+            )}
+            {el.clipped && (
+              <CornerLeftDown size={14} aria-label="Clipped to the layer below" className="-ml-1 shrink-0 text-accent-500" />
+            )}
+            {el.type === "group" && <Folder size={14} className="shrink-0 text-ink-400" />}
+            {el.type === "adjustment" && <AdjustmentIcon type={el.adjustment.type} className="shrink-0 text-ink-400" />}
+            <span className={cx("flex-1 truncate text-ink-800", clipBase && "underline decoration-ink-300 underline-offset-2")}>{label(el)}</span>
+            {issues.has(el.id) && (
+              <button
+                title={issues.get(el.id)!.join("\n")}
+                aria-label="Import notes for this layer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  st.select([el.id], false, true);
+                  if (designId) openNotes(designId);
+                }}
+                className="rounded p-1 text-accent-500 hover:bg-ink-100"
+              >
+                <Info size={14} />
+              </button>
+            )}
+            {!flags.get(el.id)?.locked && (el.clipped || (siblings.get(el.groupId ?? null) ?? []).indexOf(el.id) > 0) && (
+              <button
+                title={el.clipped ? "Release clip (Alt+Ctrl+G)" : "Clip to layer below (Alt+Ctrl+G)"}
+                aria-label={el.clipped ? "Release clip" : "Clip to layer below"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  st.toggleClip([el.id]);
+                }}
+                className={cx("rounded p-1 text-ink-500 hover:bg-ink-100", "md:opacity-0 md:group-hover:opacity-100")}
+              >
+                <CornerLeftDown size={14} />
+              </button>
+            )}
             <button
               title={el.locked ? "Unlock" : "Lock"}
               onClick={(e) => {
@@ -404,6 +576,16 @@ function LayersTab() {
           </li>
         ))}
       </ul>
+      {report && !notesOpen && (
+        <button
+          onClick={() => designId && openNotes(designId)}
+          className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full py-1.5 text-xs text-ink-600 shadow-[var(--shadow-hairline)] hover:bg-ink-50"
+        >
+          <Info size={14} className="text-accent-500" />
+          Import notes ({report.items.length})
+        </button>
+      )}
+      {notesOpen && <ImportNotes />}
     </>
   );
 }
