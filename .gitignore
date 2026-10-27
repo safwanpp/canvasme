@@ -45,3 +45,5 @@ next-env.d.ts
 
 # pdf.js worker and data, copied from node_modules by scripts/copy-pdfjs.mjs
 /public/pdfjs/
+
+.tmp-p6a
