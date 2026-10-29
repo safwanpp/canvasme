@@ -11,7 +11,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:slate": "npm run build && node scripts/slate-prepare.mjs && catalyst deploy slate canvasme -ni"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",
