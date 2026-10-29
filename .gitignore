@@ -47,3 +47,6 @@ next-env.d.ts
 /public/pdfjs/
 
 .tmp-p6a
+
+# zoho catalyst (local project identity)
+.catalystrc
